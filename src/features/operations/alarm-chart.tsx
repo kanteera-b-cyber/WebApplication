@@ -46,7 +46,7 @@ export function AlarmChart({ alarms, days = 7 }: { alarms: Alarm[]; days?: numbe
 
   return (
     <div className="mt-4">
-      <div className="mb-2 flex items-center gap-4 text-[9px] text-[#8792a0]">
+      <div className="mb-2 flex items-center gap-4 text-[9px] text-muted">
         <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-danger" />Still active</span>
         <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-success" />Closed</span>
       </div>
@@ -67,12 +67,12 @@ export function AlarmChart({ alarms, days = 7 }: { alarms: Alarm[]; days?: numbe
                 {closedHeight > 0 && <div className={`w-full bg-success ${activeHeight > 0 ? "" : "rounded-t-[3px]"}`} style={{ height: closedHeight }} />}
                 {bucket.total === 0 && <div className="w-full rounded-t-[3px] bg-line" style={{ height: 3 }} />}
               </div>
-              <span className={`mt-1.5 text-center text-[8px] ${hover === index ? "font-bold text-ink" : "text-[#a3adb8]"}`}>{bucket.label}</span>
+              <span className={`mt-1.5 text-center text-[8px] ${hover === index ? "font-bold text-ink" : "text-[color:var(--color-faint)]"}`}>{bucket.label}</span>
             </div>
           );
         })}
       </div>
-      <p className="mt-1 text-center text-[9px] text-[#8792a0]">
+      <p className="mt-1 text-center text-[9px] text-muted">
         {plural(buckets.reduce((sum, bucket) => sum + bucket.total, 0), "alarm")} over the last {plural(days, "day")} · peak {peak}/day
       </p>
     </div>

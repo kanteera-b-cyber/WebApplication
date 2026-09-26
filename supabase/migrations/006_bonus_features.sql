@@ -183,6 +183,7 @@ $$;
 drop trigger if exists machines_audit      on public.machines;
 drop trigger if exists alarms_audit        on public.alarms;
 drop trigger if exists maintenance_audit   on public.maintenance_records;
+
 create trigger machines_audit    after insert or update or delete on public.machines
   for each row execute function public.write_audit_log();
 create trigger alarms_audit      after insert or update or delete on public.alarms

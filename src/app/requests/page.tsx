@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { CheckCircle2, Plus, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/browser";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
@@ -52,7 +53,7 @@ type RequestRow = {
 };
 
 const statusTone: Record<string, string> = {
-  pending: "bg-warn-soft text-[#ba782c]",
+  pending: "bg-warn-soft text-[color:var(--color-on-warn-soft)]",
   approved: "bg-success-soft text-success",
   rejected: "bg-danger-soft text-danger",
 };
@@ -196,7 +197,7 @@ export function ChangeRequestsPage() {
       </div>
 
       {error && <div className={moduleError} role="alert">{error}</div>}
-      {notice && <div className="mb-3.5 max-w-[1180px] rounded-[6px] bg-success-soft px-[13px] py-[10px] text-[11px] text-[#2d7a5a]" role="status">{notice}</div>}
+      {notice && <div className="mb-3.5 max-w-[1180px] rounded-[6px] bg-success-soft px-[13px] py-[10px] text-[11px] text-[color:var(--color-on-success-soft)]" role="status">{notice}</div>}
 
       {loading ? <div className={moduleEmpty}>Loading change requests...</div> : (
         <div className={tableCard}>
@@ -220,7 +221,7 @@ export function ChangeRequestsPage() {
                   </button>
                 </span>
               ) : (
-                <span className="text-[10px] text-[#9aa5b2]">
+                <span className="text-[10px] text-[color:var(--color-faint)]">
                   {row.review_note ?? (row.reviewed_at ? `Reviewed ${new Date(row.reviewed_at).toLocaleDateString("en-GB")}` : "Awaiting an Admin")}
                 </span>
               )}
@@ -230,7 +231,10 @@ export function ChangeRequestsPage() {
         </div>
       )}
 
-      <p className={moduleFootnote}>Every request and every decision is recorded in the audit log as well.</p>
+      <p className={moduleFootnote}>
+        Every request and every decision is recorded in the audit log as well, so the
+        <Link className="mx-1 underline" href="/audit">audit trail</Link> shows who raised a request and who approved it.
+      </p>
 
       {open && (
         <div className={modalBackdrop}>

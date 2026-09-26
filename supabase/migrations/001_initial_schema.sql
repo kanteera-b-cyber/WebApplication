@@ -1,10 +1,31 @@
 create extension if not exists "pgcrypto";
 
-create type public.app_role as enum ('admin', 'technician');
-create type public.machine_status as enum ('running', 'stop', 'alarm', 'maintenance');
-create type public.alarm_status as enum ('open', 'in_progress', 'closed');
+do $$
+begin
+  if not exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace
+                 where n.nspname = 'public' and t.typname = 'app_role') then
+    create type public.app_role as enum ('admin', 'technician');
+  end if;
+end
+$$;
+do $$
+begin
+  if not exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace
+                 where n.nspname = 'public' and t.typname = 'machine_status') then
+    create type public.machine_status as enum ('running', 'stop', 'alarm', 'maintenance');
+  end if;
+end
+$$;
+do $$
+begin
+  if not exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace
+                 where n.nspname = 'public' and t.typname = 'alarm_status') then
+    create type public.alarm_status as enum ('open', 'in_progress', 'closed');
+  end if;
+end
+$$;
 
-create table public.profiles (
+create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text not null,
   role public.app_role not null default 'technician',
@@ -12,7 +33,7 @@ create table public.profiles (
   updated_at timestamptz not null default now()
 );
 
-create table public.machines (
+create table if not exists public.machines (
   id uuid primary key default gen_random_uuid(),
   machine_id text not null unique,
   machine_name text not null,
@@ -28,7 +49,7 @@ create table public.machines (
   constraint machines_location_not_blank check (length(btrim(location)) > 0)
 );
 
-create table public.alarms (
+create table if not exists public.alarms (
   id uuid primary key default gen_random_uuid(),
   machine_id uuid not null references public.machines(id) on delete restrict,
   alarm_code text not null,
@@ -47,7 +68,7 @@ create table public.alarms (
   constraint closed_alarm_has_resolution check (status <> 'closed' or (length(btrim(coalesce(cause, ''))) > 0 and length(btrim(coalesce(action_taken, ''))) > 0 and closed_by is not null and closed_at is not null))
 );
 
-create table public.maintenance_records (
+create table if not exists public.maintenance_records (
   id uuid primary key default gen_random_uuid(),
   machine_id uuid not null references public.machines(id) on delete restrict,
   technician_id uuid not null references public.profiles(id) on delete restrict,
@@ -64,20 +85,24 @@ create table public.maintenance_records (
   constraint maintenance_dates_valid check (completed_at is null or completed_at >= started_at)
 );
 
-create index alarms_status_idx on public.alarms(status);
-create index alarms_machine_idx on public.alarms(machine_id);
-create index alarms_occurred_idx on public.alarms(occurred_at desc);
-create index maintenance_machine_idx on public.maintenance_records(machine_id);
-create index maintenance_technician_idx on public.maintenance_records(technician_id);
-create unique index machines_machine_id_lower_unique on public.machines(lower(machine_id));
+create index if not exists alarms_status_idx on public.alarms(status);
+create index if not exists alarms_machine_idx on public.alarms(machine_id);
+create index if not exists alarms_occurred_idx on public.alarms(occurred_at desc);
+create index if not exists maintenance_machine_idx on public.maintenance_records(machine_id);
+create index if not exists maintenance_technician_idx on public.maintenance_records(technician_id);
+create unique index if not exists machines_machine_id_lower_unique on public.machines(lower(machine_id));
 
 create or replace function public.set_updated_at() returns trigger language plpgsql as $$
 begin new.updated_at = now(); return new; end;
 $$;
 
+drop trigger if exists profiles_updated_at on public.profiles;
 create trigger profiles_updated_at before update on public.profiles for each row execute function public.set_updated_at();
+drop trigger if exists machines_updated_at on public.machines;
 create trigger machines_updated_at before update on public.machines for each row execute function public.set_updated_at();
+drop trigger if exists alarms_updated_at on public.alarms;
 create trigger alarms_updated_at before update on public.alarms for each row execute function public.set_updated_at();
+drop trigger if exists maintenance_updated_at on public.maintenance_records;
 create trigger maintenance_updated_at before update on public.maintenance_records for each row execute function public.set_updated_at();
 
 create or replace function public.is_admin() returns boolean language sql stable security definer set search_path = public as $$
@@ -158,8 +183,11 @@ begin
 end;
 $$;
 
+drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users for each row execute function public.handle_new_user();
+drop trigger if exists alarms_actor on public.alarms;
 create trigger alarms_actor before insert or update on public.alarms for each row execute function public.set_record_actor();
+drop trigger if exists maintenance_actor on public.maintenance_records;
 create trigger maintenance_actor before insert or update on public.maintenance_records for each row execute function public.set_record_actor();
 
 alter table public.profiles enable row level security;
@@ -167,17 +195,31 @@ alter table public.machines enable row level security;
 alter table public.alarms enable row level security;
 alter table public.maintenance_records enable row level security;
 
+drop policy if exists "users read own profile" on public.profiles;
 create policy "users read own profile" on public.profiles for select to authenticated using (id = auth.uid());
+drop policy if exists "admins read profiles" on public.profiles;
 create policy "admins read profiles" on public.profiles for select to authenticated using (public.is_admin());
+drop policy if exists "admins manage profiles" on public.profiles;
 create policy "admins manage profiles" on public.profiles for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "authenticated users read machines" on public.machines;
 create policy "authenticated users read machines" on public.machines for select to authenticated using (true);
+drop policy if exists "admins manage machines" on public.machines;
 create policy "admins manage machines" on public.machines for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "authenticated users read alarms" on public.alarms;
 create policy "authenticated users read alarms" on public.alarms for select to authenticated using (true);
+drop policy if exists "authenticated users create alarms" on public.alarms;
 create policy "authenticated users create alarms" on public.alarms for insert to authenticated with check (created_by = auth.uid());
+drop policy if exists "admins update alarms" on public.alarms;
 create policy "admins update alarms" on public.alarms for update to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "technicians update alarm workflow" on public.alarms;
 create policy "technicians update alarm workflow" on public.alarms for update to authenticated using (exists (select 1 from public.profiles where id = auth.uid() and role = 'technician')) with check (exists (select 1 from public.profiles where id = auth.uid() and role = 'technician'));
+drop policy if exists "authenticated users read maintenance" on public.maintenance_records;
 create policy "authenticated users read maintenance" on public.maintenance_records for select to authenticated using (true);
+drop policy if exists "admins or technicians create maintenance" on public.maintenance_records;
 create policy "admins or technicians create maintenance" on public.maintenance_records for insert to authenticated with check ((public.is_admin() or technician_id = auth.uid()) and created_by = auth.uid());
+drop policy if exists "admins or assigned technicians update maintenance" on public.maintenance_records;
 create policy "admins or assigned technicians update maintenance" on public.maintenance_records for update to authenticated using (public.is_admin() or technician_id = auth.uid()) with check (public.is_admin() or technician_id = auth.uid());
+drop policy if exists "admins delete alarms" on public.alarms;
 create policy "admins delete alarms" on public.alarms for delete to authenticated using (public.is_admin());
+drop policy if exists "admins delete maintenance" on public.maintenance_records;
 create policy "admins delete maintenance" on public.maintenance_records for delete to authenticated using (public.is_admin());

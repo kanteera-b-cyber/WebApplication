@@ -5,8 +5,8 @@ import { Pencil, Plus, Search, ShieldAlert, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import { useCurrentUser, canWrite } from "@/lib/auth/use-current-user";
-import { isOneOf, optionalText, requiredDate, requiredText, toDateTimeLocal } from "@/lib/operations/validation";
-import { ALARM_STATUSES, type Alarm, type AlarmStatus } from "@/lib/operations/types";
+import { describeWriteError, isOneOf, optionalText, requiredDate, requiredText, toDateTimeLocal } from "@/lib/operations/validation";
+import { ALARM_STATUSES, type Alarm } from "@/lib/operations/types";
 import { ModuleHeader } from "@/features/operations/module-header";
 import {
   alarmColumns,
@@ -164,7 +164,7 @@ export function AlarmConsole() {
       setOpen(false);
       setEditing(null);
     } catch (submitError) {
-      setError(messageFromError(submitError));
+      setError(describeWriteError(submitError, "alarm", "save"));
     }
   }
 
@@ -181,7 +181,7 @@ export function AlarmConsole() {
       if (!result.data) throw new Error("The alarm was not updated. Check your role permission.");
       setAlarms((current) => current.map((item) => item.id === alarm.id ? result.data as Alarm : item));
     } catch (statusError) {
-      setError(messageFromError(statusError));
+      setError(describeWriteError(statusError, "alarm", "save"));
     }
   }
 
@@ -197,7 +197,7 @@ export function AlarmConsole() {
       if (!result.data?.length) throw new Error("The alarm was not deleted. Check Admin permission.");
       setAlarms((current) => current.filter((item) => item.id !== alarm.id));
     } catch (removeError) {
-      setError(messageFromError(removeError));
+      setError(describeWriteError(removeError, "alarm", "delete"));
     }
   }
 
@@ -214,8 +214,4 @@ export function AlarmConsole() {
       {open && <div className={modalBackdrop}><form className={modalCard} onSubmit={save}><div className={modalHeader}><div><p className={eyebrow}>ALARM RECORD</p><h2 className={modalTitle}>{editing?.id ? "Edit alarm" : "Create alarm"}</h2></div><button type="button" className={iconButton} onClick={() => { setOpen(false); setEditing(null); }} aria-label="Close"><X size={17} /></button></div><div className={formGrid}><label className={modalLabel}>Machine<select className={modalControlRow} name="machine_id" defaultValue={formAlarm.machine_id || machines[0]?.id} disabled={Boolean(editing?.id) && !canManageDetails} required>{machines.map((machine) => <option key={machine.id} value={machine.id}>{machine.machine_id}</option>)}</select></label><label className={modalLabel}>Alarm code<input className={modalControlRow} name="alarm_code" defaultValue={formAlarm.alarm_code} readOnly={Boolean(editing?.id) && !canManageDetails} placeholder="TEMP-HIGH" maxLength={80} required /></label><label className={`${modalLabel} ${formGridFull}`}>Description<textarea className={`${modalControl} ${modalTextarea}`} name="description" defaultValue={formAlarm.description} readOnly={Boolean(editing?.id) && !canManageDetails} placeholder="Describe the alarm" maxLength={1000} required /></label><label className={modalLabel}>Date / time<input className={modalControlRow} name="occurred_at" type="datetime-local" defaultValue={toDateTimeLocal(formAlarm.occurred_at) || toDateTimeLocal(new Date().toISOString())} readOnly={Boolean(editing?.id) && !canManageDetails} required /></label>{editing?.id ? <label className={modalLabel}>Status<select className={modalControlRow} name="status" defaultValue={formAlarm.status}>{ALARM_STATUSES.map((status) => <option value={status} key={status}>{status.replace("_", " ")}</option>)}</select></label> : <input type="hidden" name="status" value="open" />}</div><div className={formGrid}><label className={modalLabel}>Cause<textarea className={`${modalControl} ${modalTextarea}`} name="cause" defaultValue={formAlarm.cause ?? ""} placeholder="Known cause (optional)" maxLength={2000} /></label><label className={modalLabel}>Action taken<textarea className={`${modalControl} ${modalTextarea}`} name="action_taken" defaultValue={formAlarm.action_taken ?? ""} placeholder="Action taken (optional)" maxLength={2000} /></label></div><p className={formHint}>Closed alarms require both Cause and Action Taken.</p><div className={modalActions}><button type="button" className={`${button} ${buttonSecondary}`} onClick={() => { setOpen(false); setEditing(null); }}>Cancel</button><button className={`${button} ${buttonPrimary}`} type="submit">Save alarm</button></div></form></div>}
     </main>
   );
-}
-
-export function alarmStatusIsValid(value: string): value is AlarmStatus {
-  return isOneOf(value, ALARM_STATUSES);
 }

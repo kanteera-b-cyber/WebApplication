@@ -21,7 +21,6 @@ import {
   rowStrong,
   select,
   shell,
-  statusTone,
   tableCard,
   tableHead,
   tableRow,
@@ -39,7 +38,7 @@ type AuditRow = {
   created_at: string;
 };
 
-const TABLE_FILTERS = ["all", "machines", "alarms", "maintenance_records"];
+const TABLE_FILTERS = ["all", "machines", "alarms", "maintenance_records", "change_requests"];
 const ACTION_FILTERS = ["all", "insert", "update", "delete"];
 
 const actionTone: Record<string, string> = {
@@ -142,7 +141,7 @@ export function AuditLogPage() {
               <strong className={rowStrong}>{formatStamp(row.created_at)}</strong>
               <span>{row.table_name}</span>
               <span>
-                <span className={`${statusTone.open ? "" : ""}inline-block w-max rounded-[4px] px-[7px] py-[5px] text-[9px] capitalize ${actionTone[row.action] ?? ""}`}>
+                <span className={`inline-block w-max rounded-[4px] px-[7px] py-[5px] text-[9px] capitalize ${actionTone[row.action] ?? ""}`}>
                   {row.action}
                 </span>
               </span>

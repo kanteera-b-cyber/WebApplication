@@ -65,14 +65,14 @@ export function NotificationBell({ alarms, machineName }: { alarms: Alarm[]; mac
       </button>
 
       {open && (
-        <div className="absolute right-0 top-9 z-30 w-[290px] rounded-[10px] border border-line bg-white p-3 shadow-[0_18px_50px_#12243a2e]">
+        <div className="absolute right-0 top-9 z-30 w-[290px] rounded-[10px] border border-line bg-surface p-3 shadow-[0_18px_50px_#12243a2e]">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-[11px] font-bold">Active alarms</p>
             <span className="text-[9px] text-muted">{active.length} item(s)</span>
           </div>
 
           {permission !== "granted" && permission !== "unsupported" && (
-            <button type="button" onClick={() => void askPermission()} className="mb-2 w-full rounded-[6px] border border-line bg-[#f8fafc] px-2 py-1.5 text-left text-[9px] text-muted hover:text-ink">
+            <button type="button" onClick={() => void askPermission()} className="mb-2 w-full rounded-[6px] border border-line bg-bg-sunken px-2 py-1.5 text-left text-[9px] text-muted hover:text-ink">
               Enable desktop notifications
             </button>
           )}
@@ -82,7 +82,7 @@ export function NotificationBell({ alarms, machineName }: { alarms: Alarm[]; mac
               <div key={alarm.id} className="border-b border-line py-1.5 last:border-0">
                 <p className="text-[10px] font-bold">{alarm.alarm_code}</p>
                 <p className="text-[9px] text-muted">{machineName(alarm.machine_id)}</p>
-                <p className="text-[8px] text-[#a3adb8]">{new Date(alarm.occurred_at).toLocaleString("en-GB")}</p>
+                <p className="text-[8px] text-[color:var(--color-faint)]">{new Date(alarm.occurred_at).toLocaleString("en-GB")}</p>
               </div>
             ))}
             {active.length === 0 && <p className="py-3 text-center text-[10px] text-muted">No active alarms.</p>}

@@ -30,8 +30,13 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files
+#
+# .env* also matches .env.example, which must stay in the repository: the README
+# tells a new user to copy it to .env.local, and without it that step fails.
+# Only the example, which holds placeholders, is tracked.
 .env*
+!.env.example
 
 # supabase
 supabase/.temp

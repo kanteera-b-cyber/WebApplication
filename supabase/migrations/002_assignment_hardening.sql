@@ -6,30 +6,48 @@
 do $$
 begin
   if not exists (select 1 from pg_constraint where conname = 'machines_machine_id_not_blank') then
+    -- Re-runnable: drop first, because PostgreSQL has no ADD CONSTRAINT IF NOT EXISTS.
+    alter table public.machines drop constraint if exists machines_machine_id_not_blank;
     alter table public.machines add constraint machines_machine_id_not_blank check (length(btrim(machine_id)) between 2 and 32);
   end if;
   if not exists (select 1 from pg_constraint where conname = 'machines_machine_id_format') then
+    -- Re-runnable: drop first, because PostgreSQL has no ADD CONSTRAINT IF NOT EXISTS.
+    alter table public.machines drop constraint if exists machines_machine_id_format;
     alter table public.machines add constraint machines_machine_id_format check (machine_id ~ '^[A-Za-z0-9][A-Za-z0-9._-]{1,31}$');
   end if;
   if not exists (select 1 from pg_constraint where conname = 'machines_machine_name_not_blank') then
+    -- Re-runnable: drop first, because PostgreSQL has no ADD CONSTRAINT IF NOT EXISTS.
+    alter table public.machines drop constraint if exists machines_machine_name_not_blank;
     alter table public.machines add constraint machines_machine_name_not_blank check (length(btrim(machine_name)) > 0);
   end if;
   if not exists (select 1 from pg_constraint where conname = 'machines_machine_type_not_blank') then
+    -- Re-runnable: drop first, because PostgreSQL has no ADD CONSTRAINT IF NOT EXISTS.
+    alter table public.machines drop constraint if exists machines_machine_type_not_blank;
     alter table public.machines add constraint machines_machine_type_not_blank check (length(btrim(machine_type)) > 0);
   end if;
   if not exists (select 1 from pg_constraint where conname = 'machines_location_not_blank') then
+    -- Re-runnable: drop first, because PostgreSQL has no ADD CONSTRAINT IF NOT EXISTS.
+    alter table public.machines drop constraint if exists machines_location_not_blank;
     alter table public.machines add constraint machines_location_not_blank check (length(btrim(location)) > 0);
   end if;
   if not exists (select 1 from pg_constraint where conname = 'alarms_code_not_blank') then
+    -- Re-runnable: drop first, because PostgreSQL has no ADD CONSTRAINT IF NOT EXISTS.
+    alter table public.alarms drop constraint if exists alarms_code_not_blank;
     alter table public.alarms add constraint alarms_code_not_blank check (length(btrim(alarm_code)) > 0);
   end if;
   if not exists (select 1 from pg_constraint where conname = 'alarms_description_not_blank') then
+    -- Re-runnable: drop first, because PostgreSQL has no ADD CONSTRAINT IF NOT EXISTS.
+    alter table public.alarms drop constraint if exists alarms_description_not_blank;
     alter table public.alarms add constraint alarms_description_not_blank check (length(btrim(description)) > 0);
   end if;
   if not exists (select 1 from pg_constraint where conname = 'maintenance_problem_not_blank') then
+    -- Re-runnable: drop first, because PostgreSQL has no ADD CONSTRAINT IF NOT EXISTS.
+    alter table public.maintenance_records drop constraint if exists maintenance_problem_not_blank;
     alter table public.maintenance_records add constraint maintenance_problem_not_blank check (length(btrim(problem)) > 0);
   end if;
   if not exists (select 1 from pg_constraint where conname = 'maintenance_action_not_blank') then
+    -- Re-runnable: drop first, because PostgreSQL has no ADD CONSTRAINT IF NOT EXISTS.
+    alter table public.maintenance_records drop constraint if exists maintenance_action_not_blank;
     alter table public.maintenance_records add constraint maintenance_action_not_blank check (length(btrim(action_taken)) > 0);
   end if;
 end
@@ -55,8 +73,10 @@ create unique index if not exists machines_machine_id_lower_unique
 drop policy if exists "authenticated users can read profiles" on public.profiles;
 drop policy if exists "users read own profile" on public.profiles;
 drop policy if exists "admins read profiles" on public.profiles;
+drop policy if exists "users read own profile" on public.profiles;
 create policy "users read own profile" on public.profiles
   for select to authenticated using (id = auth.uid());
+drop policy if exists "admins read profiles" on public.profiles;
 create policy "admins read profiles" on public.profiles
   for select to authenticated using (public.is_admin());
 

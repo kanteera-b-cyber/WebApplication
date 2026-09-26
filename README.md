@@ -48,6 +48,9 @@ Web application สำหรับทีมงาน Automation ในโรง�
 | เปลี่ยนสถานะ Alarm | `canManageDetails` จำกัดฟอร์มเหลือ status / cause / action | `technicians update alarm workflow` | `set_record_actor()` ตอก error เมื่อพยายามแก้ field อื่น |
 | ดู Dashboard | ไม่มีการจำกัดตาม Role | `authenticated users read alarms` / `authenticated users read maintenance` | — |
 | เลื่อนสิทธิ์ตัวเองเป็น Admin | หน้า `/users` เข้าได้เฉพาะ Admin ที่เหลือจะถูก redirect | `admins manage profiles` | — |
+| อ่านข้อมูลทุกตารางในฐานะ `Viewer` | `canWrite()` ซ่อนปุ่ม Create / Edit / Delete ทุกหน้า | `viewers read machines` / `viewers read alarms` / `viewers read maintenance` | `public.can_write()` ทำให้ policy ของช่างไม่รับ Viewer |
+
+**ทำไมต้องมี `public.can_write()`:** ถ้าเขียน policy ของช่างว่า "ไม่ใช่ Admin" ตรง ๆ บอกว่า `not is_admin()` หรือเขียนเป็น `is_admin() or technician_id = auth.uid()` บอร์ด `viewer` จะผ่านเงื่อนไขนั้นด้วย เพราะ Viewer ไม่ใช่ Admin และช่อง `technician_id` เป็นค่าว่างได้ ฟังก์ชัน `can_write()` จึงระบุตรง ๆ ว่าใครเขียนข้อมูลได้บ้าง และถูกเรียกใน policy ที่เกี่ยวข้องทุกตัว
 
 **ข้อสังเกต 2 ข้อสำหรับผู้ตรวจ:**
 
@@ -99,10 +102,14 @@ Web application สำหรับทีมงาน Automation ในโรง�
 | --- | --- | --- |
 | Machines | ค้นข้อความ (ID / ชื่อ / ชนิด / ตำแหน่ง) + สถานะ + ขอบเขต archived | 3 |
 | Alarms | ค้นข้าความ (เครื่อง / code / รายละเอียด) + สถานะ | 2 |
-| Maintenance | ค้นข้อความ (ปัญหา / งานที่ทำ / เครื่อง / ช่าง) + สถานะ | 2 |
+| Maintenance | ค้นข้อความ (ปัญหา / งานที่ทำ / เครื่อง / ช่าง) + สถานะ (รวม Waiting part) | 2 |
 | Dashboard | ค้นข้อความ + ช่วงเวลา 24 ชั่วโมง / 7 วัน | 2 |
+| Audit | ตารางที่บันทึก + ประเภทการกระทำ (insert / update / delete) | 2 |
+| History | เลือกเครื่องจักร | 1 |
 
 ครอบคลุมเป้าหมายการค้นหาครบทั้ง 5 หัวข้อตามโจทย์ ได้แก่ Machine, Status, Alarm Code, Technician และ Date
+
+ข้อจำกัดที่ควรรู้: ช่วงเวลาและช่องค้นหาบน Dashboard มีผลกับ**คิวเหตุแจ้งเตือน**เท่านั้น ไม่ได้กรองการ์ดตัวเลขหรือกราฟ donut ซึ่งแสดงภาพรวมทั้งหมดเสมอ ส่วนหน้า Reports ยังไม่มีตัวกรอง เป็นหน้าสรุปและส่งออก CSV
 
 ### 3.6 Dashboard
 
@@ -139,18 +146,22 @@ Web application สำหรับทีมงาน Automation ในโรง�
 
 ### 4.2 การติดตั้งฐานข้อมูล (แนะนำวิธีเร็วที่สุด)
 
-คัดลอกเนื้อหาไฟล์ `supabase/setup.sql` ไปวางใน **Supabase → SQL Editor** แล้วกด **Run** ไฟล์นี้รันซ้ำได้ (idempotent) จึงไม่เป็นไรถ้ารันมากกว่าหนึ่งครั้ง โดยจะทำงาน 4 อย่าง:
+คัดลอกเนื้อหาไฟล์ [`supabase/bootstrap.sql`](./supabase/bootstrap.sql) ไปวางใน **Supabase → SQL Editor** แล้วกด **Run** ไฟล์นี้คือ migration ทั้ง 9 ไฟล์เรียงตามลำดับ ต่อด้วย `seed.sql` รวมเป็นไฟล์เดียว
 
-1. ซ่อม trigger การสมัครสมาชิกให้ใช้ Role ที่ผู้ใช้เลือกจริง
-2. เลื่อนบัญชีแรกที่สมัครเป็น Admin เพื่อให้เริ่มจัดการข้อมูลได้
-3. ใส่ข้อมูลตัวอย่าง 4 เครื่อง, 2 alarm และ 1 maintenance
-4. แสดงตารางสรุปบัญชีและ Role ทั้งหมดท้ายไฟล์
+ไฟล์นี้ **รันซ้ำได้** ทุกคำสั่งถูกเขียนให้ปลอดภัยเมื่อรันซ้ำ ได้แก่
 
-จากนั้นออกจากระบบแล้วเข้าใหม่ เนื่องจากระบบอ่านค่า Role เพียงครั้งเดียวตอนหน้าเว็บโหลด
+- `create type` / `create table` / `create index` ใช้ `if not exists`
+- `create trigger` / `create policy` / `add constraint` มี `drop ... if exists` นำหน้าทุกตัว เพราะ PostgreSQL ไม่มี `ADD CONSTRAINT IF NOT EXISTS`
+
+ยืนยันแล้วว่ารันทั้งไฟล์ **3 รอบซ้อนกันใน transaction เดียวไม่เกิด error** และไม่ทำให้จำนวนแถวเปลี่ยน
+
+หลังจากรันเสร็จ ให้สมัครบัญชีผ่านหน้าเว็บก่อน แล้วรันคำสั่งท้ายไฟล์เพื่อเลื่อนบัญชีของตัวเองเป็น Admin (ไฟล์พิมพ์คำสั่งนี้ไว้ให้แล้ว) จากนั้นออกจากระบบแล้วเข้าใหม่ เนื่องจากระบบอ่านค่า Role เพียงครั้งเดียวตอนหน้าเว็บโหลด
+
+> `supabase/bootstrap.sql` เป็นไฟล์ที่ **สร้างอัตโนมัติ** จาก `supabase/migrations/*.sql` และ `supabase/seed.sql` โดยสคริปต์ `supabase/build-bootstrap.mjs` หากแก้ migration ให้รัน `node supabase/build-bootstrap.mjs` เพื่อสร้างไฟล์ใหม่ ส่วนหัวไฟล์จะบันทึกชื่อไฟล์และค่า sha256 ของแต่ละชิ้นที่นำมาประกอบ
 
 ### 4.3 การติดตั้งสคีมาทีละไฟล์
 
-หากต้องการติดตั้งสคีมาจากศูนย์ ให้รันไฟล์ต่อไปนี้ใน Supabase SQL Editor ตามลำดับ
+หากต้องการติดตั้งทีละขั้นตอนเพื่อดูรายละเอียด ให้รันไฟล์ต่อไปนี้ใน Supabase SQL Editor ตามลำดับ
 
 1. `supabase/migrations/001_initial_schema.sql`
 2. `supabase/migrations/002_assignment_hardening.sql`
@@ -159,8 +170,10 @@ Web application สำหรับทีมงาน Automation ในโรง�
 5. `supabase/migrations/005_signup_role_enforcement.sql`
 6. `supabase/migrations/006_bonus_features.sql`
 7. `supabase/migrations/007_seed_viewer_account.sql`
+8. `supabase/migrations/008_seed_friendly_actor_defaults.sql`
+9. `supabase/migrations/009_audit_change_requests.sql`
 
-ข้อมูลตัวอย่างสำหรับทดลองใช้งานเพิ่มเติมอยู่ใน `supabase/seed.sql`
+ข้อมูลตัวอย่างสำหรับทดลองใช้งานเพิ่มเติมอยู่ใน `supabase/seed.sql` ไฟล์นี้มี 4 เครื่อง, 9 alarm กระจายใน 7 วัน และ 3 งานบำรุงรักษา (2 งานปิดเสร็จแล้ว)
 
 > **ข้อควรระวัง:** `003_signup_role.sql` เขียนทับเฉพาะฟังก์ชัน `public.handle_new_user()` ส่วน trigger `on_auth_user_created` ถูกสร้างโดย `001_initial_schema.sql` ดังนั้น `005_signup_role_enforcement.sql` จึงเขียนทับทั้งฟังก์ชันและสร้าง trigger ใหม่อีกครั้ง เพื่อซ่อมโปรเจกต์ที่มีฟังก์ชันเวอร์ชันเก่าซึ่งกำหนด role เป็น `technician` แบบตายตัว
 
@@ -252,21 +265,33 @@ curl -s "$NEXT_PUBLIC_SUPABASE_URL/auth/v1/settings" -H "apikey: $NEXT_PUBLIC_SU
 
 ```bash
 npm run lint
+npm test
 npm run typecheck
 npm run build
 ```
 
 ### 6.1 GitHub Actions (CI)
 
-Workflow ที่ `.github/workflows/ci.yml` ทำงานอัตโนมัติทุกครั้งที่ push เข้า `main` และทุก pull request แบ่งเป็น 5 ขั้นตอนที่มีชื่อชัดเจน เพื่อให้แท็บ Actions แสดงว่าขั้นตอนใดล้มเหลว
+Workflow ที่ `.github/workflows/ci.yml` ทำงานอัตโนมัติทุกครั้งที่ push เข้า `main` และทุก pull request แบ่งเป็น 6 ขั้นตอนที่มีชื่อชัดเจน เพื่อให้แท็บ Actions แสดงว่าขั้นตอนใดล้มเหลว
 
 | ขั้นตอน | คำสั่ง |
 | --- | --- |
 | 1. Install dependencies | `npm ci` |
 | 2. Lint | `npm run lint` |
-| 3. Generate Next.js route types | `npx next typegen` |
-| 4. Typecheck | `npm run typecheck` |
-| 5. Build | `npm run build` |
+| 3. Test | `npm test` |
+| 4. Generate Next.js route types | `npx next typegen` |
+| 5. Typecheck | `npm run typecheck` |
+| 6. Build | `npm run build` |
+
+`npm run lint` ใช้ `--max-warnings 0` ดังนั้น warning ใด ๆ ก็ทำให้ CI ล้มเหลว ไม่ใช่แค่ error
+
+`npm test` รันชุดทดสอบด้วย test runner ที่มากับ Node.js โดยตรง ไม่ต้องติดตั้ง test framework เพิ่ม ไฟล์ทดสอบอยู่ใน `src/lib/operations/*.test.ts` ครอบคลุมตรรกะที่ตรวจสอบได้โดยไม่ต้องต่อฐานข้อมูล ได้แก่
+
+| ไฟล์ทดสอบ | สิ่งที่ตรวจ |
+| --- | --- |
+| `validation.test.ts` | การบังคับข้อมูล, รูปแบบ Machine ID, การแปลงวันที่ และการแปลงรหัส error ของ Postgres เป็นข้อความที่ผู้ใช้อ่านรู้เรื่อง |
+| `format.test.ts` | การเติม s ตามจำนวน เช่น `1 machine` ไม่ใช่ `1 machines` |
+| `machines.test.ts` | การอ่านรายการเครื่องจักรทั้งกรณีที่คอลัมน์ `is_archived` มีอยู่แล้วและยังไม่มี |
 
 ต้องรัน `next typegen` ก่อนตรวจ TypeScript เพราะชนิดอย่าง `LayoutProps` ถูกสร้างไว้ใน `.next/types/` ซึ่งอยู่ใน `.gitignore` เครื่องที่ checkout ใหม่จึงไม่มีไฟล์นี้
 
@@ -297,10 +322,10 @@ Workflow ที่ `.github/workflows/ci.yml` ทำงานอัตโนม�
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | คีย์ `sb_publishable_...` จาก Supabase → Project Settings → API |
 
    ติ๊กให้ครบทั้ง **Production**, **Preview** และ **Development** · ไม่จำเป็นต้องใช้และห้ามใส่ Service Role Key
-4. รัน migration ทั้ง 5 ไฟล์ (หรือ `supabase/setup.sql`) กับโปรเจกต์ Supabase ก่อนทดสอบ
-5. Deploy แล้วทดสอบ `/login`, `/dashboard`, `/machines`, `/alarms` และ `/maintenance` บน URL ของ Vercel
+4. รัน `supabase/bootstrap.sql` (หรือ migration ทั้ง 9 ไฟล์) กับโปรเจกต์ Supabase ก่อนทดสอบ
+5. Deploy แล้วทดสอบ `/login`, `/dashboard`, `/machines`, `/alarms`, `/maintenance`, `/audit`, `/history` และ `/requests` บน URL ของ Vercel
 
-ระบบต้องการ Node.js เวอร์ชัน 20.9 ขึ้นไป โดย `package.json` ระบุ `engines.node` ไว้เพื่อให้ Vercel เลือก runtime ที่เข้ากันได้
+ระบบต้องการ Node.js เวอร์ชัน 22.6 ขึ้นไป โดย `package.json` ระบุ `engines.node` ไว้เพื่อให้ Vercel เลือก runtime ที่เข้ากันได้ (Next.js 16 ต้องการ 20.9 ขึ้นไป แต่ชุดทดสอบใช้ type stripping ของ Node.js ซึ่งมาตั้งแต่ 22.6)
 
 **GitHub repository:** https://github.com/kanteera-b-cyber/WebApplication
 
@@ -323,16 +348,18 @@ Workflow ที่ `.github/workflows/ci.yml` ทำงานอัตโนม�
 | เพิ่ม Audit Log | ทำแล้ว | เมนู **Audit** · trigger บันทึกอัตโนมัติทุก insert/update/delete |
 | เพิ่ม Notification | ทำแล้ว | กระดิ่งบน Topbar · รายการ alarm ที่ยัง active + desktop notification |
 | Responsive UI | ทำแล้ว | ทุกหน้า รองรับมือถือ |
-| Export CSV / Excel | ทำแล้ว | หน้า Reports |
-| Dark Mode | ทำแล้ว | ปุ่มพระจันทร์บน Topbar · จำค่าไว้ใน localStorage |
+| Export CSV | ทำแล้ว | หน้า Reports · ส่งออก Machine, Alarm และ Maintenance เป็นไฟล์ CSV (ยังไม่มี Excel) |
+| Dark Mode | ทำแล้ว | ปุ่มพระจันทร์บน Topbar และหน้า Login · จำค่าไว้ใน localStorage |
 | เพิ่ม Filter ตามช่วงวันที่ | ทำแล้ว | Dashboard เลือก 24 ชม. / 7 วัน |
 | Change Request ต้องผู้ดูแลอนุมัติ | ทำแล้ว | เมนู **Requests** · ทุกคนเสนอได้, เฉพาะ Admin อนุมัติ/ปฏิเสธ |
 | เพิ่มข้อมูล Technician | ทำแล้ว | ค้นหาและกรองตามช่างในหน้า Maintenance, แสดงชื่อผู้รับผิดชอบใน Audit และ Requests |
 | เพิ่ม Validation เพิ่มเติม | ทำแล้ว | `waiting_part` ต้องไม่มี `completed_at`, ความยาว title/description ของ change request |
 
-**Dark Mode** ทำงานโดยสลับคลาส `dark` บน `<html>` และปรับเฉพาะตัวแปรสีใน `globals.css` ทุก utility ที่สร้างบน token เหล่านั้นจึงเปลี่ยนตามอัตโนมัติโดยไม่ต้องแก้ component ใดๆ สคริปต์เล็กใน `layout.tsx` จะกำหนดธีมก่อนหน้าจอแรกวาด เพื่อไม่ให้เห็นธีมสว่างแวบก่อนแล้วกระพริบเป็นธีมมืด
+**Dark Mode** ทำงานโดยสลับคลาส `dark` บน `<html>` และปรับเฉพาะ**ค่าตัวแปรสี**ใน `globals.css` ทุก utility ที่สร้างบน token เหล่านั้นจึงเปลี่ยนตามอัตโนมัติโดยไม่ต้องแก้ component ใดๆ สคริปต์เล็กใน `layout.tsx` จะกำหนดธีมก่อนหน้าจอแรกวาด เพื่อไม่ให้เห็นธีมสว่างแวบก่อนแล้วกระพริบเป็นธีมมืด
 
-**Audit Log** เขียนโดย trigger `public.write_audit_log()` บันทึกผู้กระทำ (`actor_role`) และค่าก่อน/หลัง (`changes`) โดยตาราง `audit_log` **ไม่มี INSERT policy ให้ใคร** แม้แต่ client จึงสร้างรายการปลอมไม่ได้
+ข้อสำคัญของกลไกนี้คือ **ต้องใช้ token เท่านั้น** ถ้าคลาสใดเขียนสีตายตัว เช่น `bg-white` หรือ `text-[#8793a1]` สีนั้นจะไม่เปลี่ยนตามธีมและจะเห็นเป็นแถบสีขาวบนพื้นมืด ดังนั้นในโปรเจกต์นี้ผูกสีพื้นผิวกับ `bg-surface`, `bg-canvas` และ `bg-sunken` ส่วนสีตัวอักษรรองใช้ `text-muted` และ `text-faint` การมี `bg-white` ในโค้ดเป็นข้อผิดพลาด ไม่ใช่แค่รายละเอียดเล็กน้อย
+
+**Audit Log** เขียนโดย trigger `public.write_audit_log()` บันทึกผู้กระทำ (`actor_role`) และค่าก่อน/หลัง (`changes`) โดยตาราง `audit_log` **ไม่มี INSERT policy ให้ใคร** แม้แต่ client จึงสร้างรายการปลอมไม่ได้ trigger ถูกติดตั้งบน `machines`, `alarms`, `maintenance_records` และ `change_requests` รวมทั้งการอนุมัติและการปฏิเสธ change request
 
 **Viewer** ใช้ฟังก์ชัน `public.can_write()` ใน RLS เพราะ `is_admin()` อย่างเดียวแสดงความตั้งใจไม่ได้ ต้องกันกรณี role อื่นที่ไม่ใช่ admin หลุดเข้า policy ของ technician
 
@@ -385,8 +412,51 @@ Workflow ที่ `.github/workflows/ci.yml` ทำงานอัตโนม�
 
 - [x] URL ของ GitHub repository
 - [x] URL ของระบบที่ deploy บน Vercel — https://web-application-psi-tawny.vercel.app
-- [x] สคีมาฐานข้อมูลบน Supabase — [migration 5 ไฟล์](./supabase/migrations) และ [เอกสารสคีมา](./DATABASE_SCHEMA.md)
-- [x] มีบัญชีทดสอบทั้ง Admin และ Technician
+- [x] สคีมาฐานข้อมูลบน Supabase — [migration 8 ไฟล์](./supabase/migrations) และ [เอกสารสคีมา](./DATABASE_SCHEMA.md)
+- [x] มีบัญชีทดสอบทั้ง Admin, Technician และ Viewer
 - [x] อัปเดต README ด้วย URL จริงของ Vercel
-- [x] จับภาพหน้าจอระบบแล้ว
-- [x] จัดทำรายงานสรุปการใช้ AI ในการพัฒนาแล้ว
+- [x] จับภาพหน้าจอระบบแล้ว — ดู [หัวข้อ 9](#9-ภาพหน้าจอระบบ)
+- [x] จัดทำรายงานสรุปการใช้ AI ในการพัฒนาแล้ว — [AI_USAGE_REPORT.md](./AI_USAGE_REPORT.md)
+
+## 9. ภาพหน้าจอระบบ
+
+ทุกภาพถ่ายจากระบบที่ deploy จริงบน [Vercel](https://web-application-psi-tawny.vercel.app) ไม่ใช่จากเครื่องนักพัฒนา และตัวเลขในภาพมาจาก Supabase โปรเจกต์เดียวกับที่ใช้งานจริง
+
+### บัญชีสำหรับเปิดดูระบบ
+
+| Role | Email | Password | สิทธิ์ |
+| --- | --- | --- | --- |
+| Admin | `demo.admin@forgeops.dev` | `DemoAdmin@2026` | เต็มตามโจทย์ข้อ 3.1 |
+| Technician | `demo.tech@forgeops.dev` | `DemoTech@2026` | ตามโจทย์ข้อ 3.1 |
+| Viewer | `demo.viewer@forgeops.dev` | `DemoViewer@2026` | อ่านอย่างเดียว (โบนัส) |
+
+### หน้า Login และ Dashboard
+
+| ภาพ | สิ่งที่ต้องการพิสูจน์ |
+| --- | --- |
+| [`01-login.png`](./screenshots/01-login.png) | หน้า Login 2 คอลัมน์ พร้อมข้อความแจ้งเตือนภาษาไทยคู่ภาษาอังกฤษ |
+| [`02-dashboard.png`](./screenshots/02-dashboard.png) | ตัวนับเครื่องจักรทุกสถานะ, จำนวน Alarm, จำนวนงาน Maintenance, กราฟ donut และกราฟแท่งรายวัน |
+| [`03-dashboard-full.png`](./screenshots/03-dashboard-full.png) | Dashboard ทั้งหน้า รวมแถบสรุปอัตราการปิดงานบำรุงรักษา |
+| [`14-dashboard-dark-mode.png`](./screenshots/14-dashboard-dark-mode.png) | Dark Mode (โบนัส) โดยสลับธีมจากปุ่มบน Topbar |
+| [`15-responsive-mobile.png`](./screenshots/15-responsive-mobile.png) | Responsive UI ที่ความกว้างมือถือ 414 px (โบนัส) |
+
+### การจัดการข้อมูลหลัก ข้อ 3.2 ถึง 3.4 และ 3.7
+
+| ภาพ | สิ่งที่ต้องการพิสูจน์ |
+| --- | --- |
+| [`04-machines.png`](./screenshots/04-machines.png) | Machine Master พร้อมการค้นหา กรองตามสถานะ และปุ่ม Create / Edit / Delete ของ Admin |
+| [`05-machine-form-validation.png`](./screenshots/05-machine-form-validation.png) | ฟอร์มข้อมูลเครื่องจักร พร้อมช่องที่บังคับกรอก |
+| [`06-validation-errors.png`](./screenshots/06-validation-errors.png) | ข้อความแจ้งเตือนเมื่อกรอกข้อมูลไม่ครบ (ข้อ 3.7) |
+| [`07-alarms.png`](./screenshots/07-alarms.png) | Alarm Record พร้อมสถานะ Open / In Progress / Closed |
+| [`08-maintenance.png`](./screenshots/08-maintenance.png) | Maintenance Record พร้อมสถานะ In progress / Waiting part / Completed |
+| [`13-users.png`](./screenshots/13-users.png) | หน้าผู้ใช้งานสำหรับ Admin เปลี่ยน Role ได้ |
+
+### สิทธิ์ตามบทบาท ข้อ 3.1 และฟีเจอร์โบนัส
+
+| ภาพ | สิ่งที่ต้องการพิสูจน์ |
+| --- | --- |
+| [`16-viewer-readonly.png`](./screenshots/16-viewer-readonly.png) | Role Viewer อ่านได้แต่ไม่มีปุ่ม Create / Edit / Delete ให้เห็น |
+| [`09-audit-log.png`](./screenshots/09-audit-log.png) | Audit Log ที่ trigger บันทึกทุก insert / update / delete พร้อมผู้กระทำ |
+| [`10-machine-history.png`](./screenshots/10-machine-history.png) | ประวัติการเปลี่ยนแปลงของเครื่องจักรแต่ละเครื่อง |
+| [`11-change-requests.png`](./screenshots/11-change-requests.png) | Change Request ที่ทุกคนเสนอได้ แต่เฉพาะ Admin เท่านั้นที่อนุมัติหรือปฏิเสธได้ |
+| [`12-reports.png`](./screenshots/12-reports.png) | หน้า Reports พร้อมส่งออกข้อมูลเป็นไฟล์ CSV |

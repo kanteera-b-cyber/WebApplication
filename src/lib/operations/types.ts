@@ -17,6 +17,12 @@ export const MAINTENANCE_STATUS_LABELS: Record<string, string> = {
 export const APP_ROLES = ["admin", "technician", "viewer"] as const;
 export type AppRole = (typeof APP_ROLES)[number];
 
+export const APP_ROLE_LABELS: Record<AppRole, string> = {
+  admin: "Admin",
+  technician: "Technician",
+  viewer: "Viewer (read-only)",
+};
+
 /** Roles that may change data. A viewer can only read. */
 export const WRITE_ROLES: readonly AppRole[] = ["admin", "technician"];
 

@@ -10,6 +10,9 @@ import {
   ChevronDown,
   CircleGauge,
   ClipboardCheck,
+  FileBarChart,
+  GitPullRequest,
+  History as HistoryIcon,
   LayoutDashboard,
   Menu,
   MoreHorizontal,
@@ -20,7 +23,6 @@ import {
   UsersRound,
   Wrench,
   X,
-  History as HistoryIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/browser";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
@@ -29,6 +31,7 @@ import { eyebrow, eyebrowAccent, statusTone } from "@/features/operations/module
 import { plural } from "@/lib/operations/format";
 import { AlarmChart } from "@/features/operations/alarm-chart";
 import { NotificationBell } from "@/features/operations/notification-bell";
+import { ThemeToggle } from "@/features/operations/theme-toggle";
 import {
   alarmCopy,
   alarmCopyHead,
@@ -96,7 +99,6 @@ import {
   navItemActive,
   navLabel,
   navLabelSpaced,
-  notificationButton,
   pageContent,
   pageHeading,
   pageHeadingTitle,
@@ -254,16 +256,29 @@ export function DashboardView() {
     }
   }
 
+  /**
+   * Sidebar targets. Every entry listed here has a matching route and a branch
+   * below; a label with neither would render a button that silently does
+   * nothing, which is worse than not offering it.
+   */
+  const NAV_ROUTES: Record<string, string> = {
+    Overview: "/dashboard",
+    Machines: "/machines",
+    Alarms: "/alarms",
+    Maintenance: "/maintenance",
+    History: "/history",
+    Audit: "/audit",
+    Requests: "/requests",
+    Reports: "/reports",
+    Users: "/users",
+    Settings: "/settings",
+  };
+
   function navigate(label: string) {
     setActiveNav(label);
     setMenuOpen(false);
-    if (label === "Overview") router.push("/dashboard");
-    if (label === "Machines") router.push("/machines");
-    if (label === "Alarms") router.push("/alarms");
-    if (label === "Maintenance") router.push("/maintenance");
-    if (label === "Reports") router.push("/reports");
-    if (label === "Users") router.push("/users");
-    if (label === "Settings") router.push("/settings");
+    const target = NAV_ROUTES[label];
+    if (target) router.push(target);
   }
 
   return (
@@ -288,8 +303,8 @@ export function DashboardView() {
           {[
             { label: "History", Icon: HistoryIcon },
             { label: "Audit", Icon: ClipboardCheck },
-            { label: "Requests", Icon: Settings2 },
-            { label: "Reports", Icon: ClipboardCheck },
+            { label: "Requests", Icon: GitPullRequest },
+            { label: "Reports", Icon: FileBarChart },
             { label: "Users", Icon: UsersRound },
             { label: "Settings", Icon: Settings2 },
           ].filter(({ label }) => label !== "Users" || role === "admin").map(({ label, Icon }) => (
@@ -307,7 +322,10 @@ export function DashboardView() {
         <header className={topbar}>
           <button className={`${iconButton} max-[680px]:grid`} onClick={() => setMenuOpen(true)} aria-label="เปิดเมนู"><Menu size={20} /></button>
           <div className={breadcrumb}><span>Workspace</span><span>/</span><strong>{activeNav}</strong></div>
-          <div className={topbarActions}><span className={liveIndicator}><span />{dataState === "ready" ? "Live data" : "Data unavailable"}</span><NotificationBell alarms={alarms} machineName={machineName} /><button className={`${iconButton} ${notificationButton}`} aria-label="การแจ้งเตือน"><Bell size={18} /><i /></button><div className={topAvatar}>{initials}</div></div>
+          {/* One bell only. There used to be a second decorative button here
+              with no click handler and a permanently lit red dot, which read as
+              a broken notification. NotificationBell is the real one. */}
+          <div className={topbarActions}><span className={liveIndicator}><span />{dataState === "ready" ? "Live data" : "Data unavailable"}</span><NotificationBell alarms={alarms} machineName={machineName} /><ThemeToggle /><div className={topAvatar}>{initials}</div></div>
         </header>
 
         <div className={pageContent}>
@@ -380,7 +398,7 @@ function MachineRow({ machine, openAlarms }: { machine: Machine; openAlarms: num
         </div>
         <span className={machineMeta}>{machine.machine_type} · {machine.location}</span>
       </div>
-      {machine.status === "maintenance" && <span className={`${machineStatusTag} bg-warn-soft text-[#ba782c]`}><Wrench size={11} />servicing</span>}
+      {machine.status === "maintenance" && <span className={`${machineStatusTag} bg-warn-soft text-[color:var(--color-on-warn-soft)]`}><Wrench size={11} />servicing</span>}
       <div className={healthBar} title={`${plural(openAlarms, "open alarm")}`}>
         <div className={openAlarms > 0 ? healthBarFillLow : healthBarFill} style={{ width: `${Math.min(100, openAlarms * 34)}%` }} />
       </div>

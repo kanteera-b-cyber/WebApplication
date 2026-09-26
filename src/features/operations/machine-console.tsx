@@ -4,8 +4,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Archive, LoaderCircle, Pencil, Plus, RotateCcw, Search, ShieldAlert, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
-import { useCurrentUser, canWrite } from "@/lib/auth/use-current-user";
-import { isOneOf, machineId, requiredText } from "@/lib/operations/validation";
+import { useCurrentUser } from "@/lib/auth/use-current-user";
+import { describeWriteError, isOneOf, machineId, requiredText } from "@/lib/operations/validation";
 import { MACHINE_STATUSES, type Machine, type MachineStatus } from "@/lib/operations/types";
 import { ModuleHeader } from "@/features/operations/module-header";
 import {
@@ -66,22 +66,8 @@ function messageFromError(error: unknown) {
   return "Unable to save machine data.";
 }
 
-// Supabase/PostgREST error codes we can turn into something a user can act on.
-function describeWriteError(error: unknown, context: "save" | "delete"): string {
-  const detail = error && typeof error === "object" ? (error as { code?: string; message?: string }) : {};
-  if (detail.code === "42703" || /is_archived/i.test(detail.message ?? "")) {
-    return "Archive is not available yet. Run supabase/migrations/004_machine_soft_delete.sql in the Supabase SQL editor, then reload.";
-  }
-  if (detail.code === "23505") return "Machine ID already exists. Use a different ID.";
-  if (detail.code === "23514") return "One of the fields failed a database validation check. Review the values and try again.";
-  if (detail.code === "42501") return "Your role does not allow this change. Only Admin can manage machines.";
-  if (detail.code === "23503") {
-    return context === "delete"
-      ? "This machine is referenced by an alarm or maintenance record, so it cannot be deleted. Use Archive instead: the machine disappears from the active list while its history stays intact."
-      : "This machine is referenced by an alarm or maintenance record and cannot be changed this way.";
-  }
-  return messageFromError(error);
-}
+// Postgres errors are turned into actionable sentences by the shared mapper in
+// @/lib/operations/validation, so every module words its failures the same way.
 
 export function MachineConsole() {
   const router = useRouter();
@@ -95,7 +81,11 @@ export function MachineConsole() {
   const [saving, setSaving] = useState(false);
   const [archivingId, setArchivingId] = useState<string | null>(null);
   const [scope, setScope] = useState<"active" | "archived" | "all">("active");
-  const canManage = canWrite(role);
+  // Machines are Admin-only for writes. Technicians get read access, which is
+  // what the spec asks for, so this must not widen to canWrite(): a Technician
+  // would then be offered Create / Edit / Delete buttons that Row Level Security
+  // rejects anyway.
+  const canManage = role === "admin";
 
   useEffect(() => {
     let active = true;
@@ -172,7 +162,7 @@ export function MachineConsole() {
       ));
       setEditing(null);
     } catch (submitError) {
-      setError(describeWriteError(submitError, "save"));
+      setError(describeWriteError(submitError, "machine", "save"));
     } finally {
       setSaving(false);
     }
@@ -196,7 +186,7 @@ export function MachineConsole() {
       if (!result.data) throw new Error("The machine was not updated. Check Admin permission.");
       setMachines((current) => sortMachines(current.map((item) => (item.id === machine.id ? (result.data as Machine) : item))));
     } catch (archiveError) {
-      setError(describeWriteError(archiveError, "delete"));
+      setError(describeWriteError(archiveError, "machine", "delete"));
     } finally {
       setArchivingId(null);
     }
@@ -224,7 +214,7 @@ export function MachineConsole() {
       if (!result.data?.length) throw new Error("The machine was not deleted. Check Admin permission and database references.");
       setMachines((current) => current.filter((item) => item.id !== machine.id));
     } catch (removeError) {
-      setError(describeWriteError(removeError, "delete"));
+      setError(describeWriteError(removeError, "machine", "delete"));
     } finally {
       setArchivingId(null);
     }
@@ -257,7 +247,7 @@ export function MachineConsole() {
                 </button>
                 <button className={`${iconButton} hover:!text-danger`} onClick={() => void destroy(machine)} disabled={busy} aria-label={`Delete ${machine.machine_id} permanently`} title="Delete permanently"><Trash2 size={15} /></button>
               </span>
-            ) : <span className="text-[10px] text-[#a3adb8]">View only</span>}
+            ) : <span className="text-[10px] text-[color:var(--color-faint)]">View only</span>}
           </div>
         );
       })}{filtered.length === 0 && <div className={moduleEmpty}>No machines match your search.</div>}</div>}

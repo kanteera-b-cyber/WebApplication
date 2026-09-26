@@ -17,9 +17,20 @@
   /* Surfaces + text */
   --color-ink: #172334;
   --color-muted: #718096;
+  --color-faint: #9aa5b1;
   --color-line: #e8edf2;
   --color-canvas: #f6f8fb;
+  --color-surface: #ffffff;
+  --color-sunken: #f8fafc;
   --color-steel: #9aa7b7;
+
+  /* Status text on a soft background. Kept separate from the status colour
+     itself because the soft backgrounds are very light and need a darker text. */
+  --color-on-brand-soft: #35659f;
+  --color-on-success-soft: #2d7a5a;
+  --color-on-warn-soft: #ba782c;
+  --color-on-danger-soft: #b23c3c;
+  --color-on-grape-soft: #6b53a8;
 
   /* Semantic status palette */
   --color-brand: #3478f6;
@@ -37,16 +48,30 @@
 }
 
 /*
- * Dark theme overrides. Only the surface tokens change, so every utility built
- * on top of them (bg-canvas, text-ink, border-line, and the soft status
+ * Dark theme overrides. Only the token values change, so every utility built on
+ * top of them (bg-canvas, bg-surface, text-ink, border-line and the soft status
  * colours) flips automatically without touching a single component.
+ *
+ * This is the whole reason dark mode works: a component that says bg-surface
+ * re-themes itself, while a component that says bg-white stays white. Anything
+ * that hard-codes a colour here will not flip, so new styles should reach for a
+ * token instead.
  */
 .dark {
   --color-ink: #e7edf5;
   --color-muted: #93a1b3;
+  --color-faint: #6b7c92;
   --color-line: #24354a;
   --color-canvas: #0a1626;
+  --color-surface: #111f33;
+  --color-sunken: #0d1a2b;
   --color-steel: #64748b;
+
+  --color-on-brand-soft: #a8c8ff;
+  --color-on-success-soft: #86e0bb;
+  --color-on-warn-soft: #f0bd85;
+  --color-on-danger-soft: #f7a3a3;
+  --color-on-grape-soft: #c4b2f0;
 
   --color-brand: #5b95ff;
   --color-brand-soft: #16294a;

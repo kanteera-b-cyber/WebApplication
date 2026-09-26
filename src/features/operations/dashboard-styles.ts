@@ -8,7 +8,7 @@ import { button, buttonPrimary, buttonSecondary, iconButton, searchBox, searchIn
 export const appShell = "flex min-h-screen";
 
 export const sidebar =
-  "flex w-[244px] shrink-0 flex-col border-r border-line bg-white px-4 pb-[18px] pt-[27px] max-[680px]:fixed max-[680px]:inset-y-0 max-[680px]:left-0 max-[680px]:z-20 max-[680px]:translate-x-full max-[680px]:bg-white max-[680px]:shadow-[10px_0_30px_#14223820] max-[680px]:transition-transform max-[680px]:duration-200 max-[1100px]:w-[215px]";
+  "flex w-[244px] shrink-0 flex-col border-r border-line bg-surface px-4 pb-[18px] pt-[27px] max-[680px]:fixed max-[680px]:inset-y-0 max-[680px]:left-0 max-[680px]:z-20 max-[680px]:translate-x-full max-[680px]:bg-surface max-[680px]:shadow-[10px_0_30px_#14223820] max-[680px]:transition-transform max-[680px]:duration-200 max-[1100px]:w-[215px]";
 
 export const sidebarOpen = "max-[680px]:translate-x-0";
 
@@ -16,9 +16,9 @@ export const brandRow = "flex items-center gap-2.5 pb-7 pl-[9px]";
 
 export const brandName = "m-0 text-sm font-extrabold tracking-[1.8px] [&>span]:text-brand";
 
-export const brandCaption = "mt-0.5 mb-0 text-[9px] tracking-[.6px] text-[#9ba5b1]";
+export const brandCaption = "mt-0.5 mb-0 text-[9px] tracking-[.6px] text-[color:var(--color-faint)]";
 
-export const siteSelector = "mb-7 flex items-center gap-2.5 rounded-[9px] border border-[#edf0f4] bg-[#f8fafc] p-2.5";
+export const siteSelector = "mb-7 flex items-center gap-2.5 rounded-[9px] border border-[#edf0f4] bg-bg-sunken p-2.5";
 
 export const siteDot = "h-2 w-2 rounded-full bg-success shadow-[0_0_0_3px_#dff4e9]";
 
@@ -31,7 +31,7 @@ export const navLabel = "mb-2 mt-0 px-3 text-[9px] font-bold tracking-[1.2px] te
 export const navLabelSpaced = "mt-7";
 
 export const navItem =
-  "mb-[3px] flex w-full items-center gap-3 rounded-lg border-0 bg-transparent px-3 py-2.5 text-left text-xs font-semibold text-[#7b8796] hover:bg-[#f8fafc] hover:text-ink";
+  "mb-[3px] flex w-full items-center gap-3 rounded-lg border-0 bg-transparent px-3 py-2.5 text-left text-xs font-semibold text-[#7b8796] hover:bg-bg-sunken hover:text-ink";
 
 export const navItemActive = "bg-brand-soft text-brand";
 
@@ -45,13 +45,13 @@ export const pulseDot = "h-[7px] w-[7px] rounded-full bg-success shadow-[0_0_0_4
 
 export const systemTitle = "m-0 text-[10px] font-bold";
 
-export const systemMeta = "mt-[3px] mb-0 text-[9px] text-[#9ba5b1]";
+export const systemMeta = "mt-[3px] mb-0 text-[9px] text-[color:var(--color-faint)]";
 
-export const userCard = "flex w-full cursor-pointer items-center gap-2.5 rounded-[9px] border border-line bg-white p-2.5 text-left";
+export const userCard = "flex w-full cursor-pointer items-center gap-2.5 rounded-[9px] border border-line bg-surface p-2.5 text-left";
 
-export const avatar = "grid h-[27px] w-[27px] place-items-center rounded-full bg-[#dce9ff] text-[9px] font-extrabold text-[#3571d4]";
+export const avatar = "grid h-[27px] w-[27px] place-items-center rounded-full bg-[#dce9ff] text-[9px] font-extrabold text-[color:var(--color-brand)]";
 
-export const topAvatar = "grid h-[29px] w-[29px] place-items-center rounded-full bg-[#dce9ff] text-[9px] font-extrabold text-[#3571d4]";
+export const topAvatar = "grid h-[29px] w-[29px] place-items-center rounded-full bg-[#dce9ff] text-[9px] font-extrabold text-[color:var(--color-brand)]";
 
 export const userCopyName = "m-0 text-[11px] font-bold";
 
@@ -59,7 +59,7 @@ export const userCopyMeta = "text-[9px] text-[#99a4b2]";
 
 export const contentArea = "min-w-0 flex-1";
 
-export const topbar = "flex h-[70px] items-center justify-between border-b border-line bg-white px-[44px] max-[1100px]:px-7 max-[680px]:h-[58px] max-[680px]:px-[17px]";
+export const topbar = "flex h-[70px] items-center justify-between border-b border-line bg-surface px-[44px] max-[1100px]:px-7 max-[680px]:h-[58px] max-[680px]:px-[17px]";
 
 export const breadcrumb = "flex gap-[11px] text-[11px] text-[#a0abb8] [&>strong]:text-ink max-[680px]:hidden";
 
@@ -67,7 +67,7 @@ export const topbarActions = "flex items-center gap-[21px] max-[680px]:gap-[9px]
 
 export const liveIndicator = "flex items-center gap-[7px] text-[10px] text-muted max-[680px]:hidden [&>span]:h-1.5 [&>span]:w-1.5 [&>span]:rounded-full [&>span]:bg-success";
 
-export const notificationButton = "relative [&>i]:absolute [&>i]:right-1 [&>i]:top-1 [&>i]:h-1.5 [&>i]:w-1.5 [&>i]:rounded-full [&>i]:border [&>i]:border-white [&>i]:bg-danger";
+export const notificationButton = "relative [&>i]:absolute [&>i]:right-1 [&>i]:top-1 [&>i]:h-1.5 [&>i]:w-1.5 [&>i]:rounded-full [&>i]:border [&>i]:border-surface [&>i]:bg-danger";
 
 export const pageContent = "mx-auto max-w-[1440px] px-[44px] pb-[34px] pt-[38px] max-[1100px]:px-7 max-[680px]:px-[17px] max-[680px]:pb-6 max-[680px]:pt-[26px]";
 
@@ -84,7 +84,7 @@ export { button, buttonPrimary, buttonSecondary, iconButton, searchBox, searchIn
 export const metricGrid = "mb-6 grid grid-cols-4 gap-[15px] max-[1100px]:grid-cols-2 max-[680px]:mb-[15px] max-[680px]:gap-[9px]";
 
 export const metricCard =
-  "relative min-h-[147px] overflow-hidden rounded-[10px] border border-line bg-white px-[19px] py-[17px] after:absolute after:bottom-[-45px] after:right-[-35px] after:h-[95px] after:w-[95px] after:rounded-full max-[680px]:min-h-[130px] max-[680px]:p-[14px]";
+  "relative min-h-[147px] overflow-hidden rounded-[10px] border border-line bg-surface px-[19px] py-[17px] after:absolute after:bottom-[-45px] after:right-[-35px] after:h-[95px] after:w-[95px] after:rounded-full max-[680px]:min-h-[130px] max-[680px]:p-[14px]";
 
 /** `tone` drives the decorative corner circle and the icon chip. */
 export const metricTones: Record<string, { card: string; icon: string; delta: string }> = {
@@ -100,7 +100,7 @@ export const metricIcon = "grid h-[30px] w-[30px] place-items-center rounded-[7p
 
 export const attentionDot = "text-[9px] font-bold text-danger";
 
-export const metricLabel = "mb-[3px] mt-4 text-[11px] text-[#8692a0] max-[680px]:mt-[13px]";
+export const metricLabel = "mb-[3px] mt-4 text-[11px] text-muted max-[680px]:mt-[13px]";
 
 export const metricValueRow = "flex items-baseline gap-[9px]";
 
@@ -112,7 +112,7 @@ export const metricNote = "mt-0.5 mb-0 text-[9px] text-[#b1bac5]";
 
 export const sectionGrid = "grid grid-cols-[minmax(0,1.4fr)_minmax(370px,.9fr)] gap-4 max-[1100px]:grid-cols-1 max-[680px]:gap-[15px]";
 
-export const panel = "rounded-[10px] border border-line bg-white p-5 max-[680px]:p-[15px]";
+export const panel = "rounded-[10px] border border-line bg-surface p-5 max-[680px]:p-[15px]";
 
 export const panelHeader = "flex items-start justify-between";
 
@@ -126,17 +126,17 @@ export const countBadge = "rounded-[10px] bg-danger-soft px-[7px] py-1 text-[9px
 
 export const tableToolbar = "mb-[13px] mt-[23px] flex gap-2";
 
-export const filterButton = "flex items-center gap-1.5 rounded-[6px] border border-line bg-white px-2.5 text-[10px] text-[#728094]";
+export const filterButton = "flex items-center gap-1.5 rounded-[6px] border border-line bg-surface px-2.5 text-[10px] text-[#728094]";
 
 export const filterButtonSelected = "border-[#cfe0ff] bg-brand-soft text-brand";
 
-export const filterStrip = "mb-2.5 flex items-center gap-2 rounded-[6px] bg-[#f8fafc] px-2.5 py-2 text-[9px] text-[#8c98a6]";
+export const filterStrip = "mb-2.5 flex items-center gap-2 rounded-[6px] bg-bg-sunken px-2.5 py-2 text-[9px] text-[#8c98a6]";
 
 export const filterStripClear = "ml-auto border-0 bg-transparent px-1.5 py-1 text-[9px] text-brand";
 
 export const alarmList = "border-t border-line";
 
-export const alarmRow = "flex min-h-[57px] items-center gap-[11px] border-b border-[#f0f2f5]";
+export const alarmRow = "flex min-h-[57px] items-center gap-[11px] border-b border-bg-sunken";
 
 export const alarmSeverity = "grid h-[27px] w-[27px] shrink-0 place-items-center rounded-[7px]";
 
@@ -161,19 +161,19 @@ export const alarmStatusBadge = "whitespace-nowrap rounded-[4px] px-1.5 py-1 tex
 export const healthSummary = "mx-[14px] my-[25px] flex items-center gap-[25px] max-[680px]:mx-[3px] max-[680px]:gap-[18px]";
 
 export const donut =
-  "relative grid h-[116px] w-[116px] shrink-0 place-items-center rounded-full after:absolute after:inset-3 after:rounded-full after:bg-white max-[680px]:h-[100px] max-[680px]:w-[100px]";
+  "relative grid h-[116px] w-[116px] shrink-0 place-items-center rounded-full after:absolute after:inset-3 after:rounded-full after:bg-surface max-[680px]:h-[100px] max-[680px]:w-[100px]";
 
-export const donutCenter = "relative z-1 text-center [&>strong]:block [&>strong]:text-[23px] [&>span]:text-[9px] [&>span]:text-[#9aa5b2]";
+export const donutCenter = "relative z-1 text-center [&>strong]:block [&>strong]:text-[23px] [&>span]:text-[9px] [&>span]:text-[color:var(--color-faint)]";
 
 export const legend = "grid w-full gap-2.5";
 
-export const legendRow = "grid grid-cols-[8px_1fr_auto] items-center gap-2 text-[10px] text-[#8692a0] [&>strong]:text-[11px] [&>strong]:text-ink";
+export const legendRow = "grid grid-cols-[8px_1fr_auto] items-center gap-2 text-[10px] text-muted [&>strong]:text-[11px] [&>strong]:text-ink";
 
 export const legendDot = "h-1.5 w-1.5 rounded-full";
 
 export const machineList = "border-t border-line";
 
-export const machineRow = "flex min-h-[53px] items-center gap-[9px] border-b border-[#f0f2f5]";
+export const machineRow = "flex min-h-[53px] items-center gap-[9px] border-b border-bg-sunken";
 
 export const machineIcon = "grid h-[27px] w-[27px] place-items-center rounded-[6px] bg-[#eef4ff] text-[#6788bd]";
 
@@ -213,7 +213,7 @@ export const progressFill = "h-full rounded-[inherit] bg-brand";
 
 export const stripLink = "max-[680px]:ml-auto";
 
-export const emptyState = "px-4 py-7 text-center text-[11px] text-[#9aa5b1]";
+export const emptyState = "px-4 py-7 text-center text-[11px] text-[color:var(--color-faint)]";
 
 /** Map a machine status to its badge utilities. */
 export const machineStatusTone: Record<string, string> = {

@@ -52,3 +52,60 @@ export function formatRelativeTime(value: string): string {
   if (hours < 24) return `${hours} hr ago`;
   return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
+
+/** The record a failed write was about, which decides how the error reads. */
+export type WriteContext = "machine" | "alarm" | "maintenance";
+
+function errorDetail(error: unknown): { code?: string; message?: string } {
+  return error && typeof error === "object" ? (error as { code?: string; message?: string }) : {};
+}
+
+/**
+ * Turns a Supabase/PostgREST failure into a sentence the user can act on.
+ *
+ * Without this the raw driver text reaches the screen, for example
+ * `null value in column "cause" violates not-null constraint`, which tells the
+ * user nothing about what to change. Every console routes its write errors
+ * through here so the wording is consistent across the system.
+ */
+export function describeWriteError(error: unknown, context: WriteContext, action: "save" | "delete" = "save"): string {
+  const { code, message } = errorDetail(error);
+
+  // A missing migration, rather than anything the user did.
+  if (code === "42703" || (code === "42P01" && /is_archived|audit_log|change_requests/i.test(message ?? ""))) {
+    return "The database is missing an update. Run the files in supabase/migrations in order in the Supabase SQL editor, then reload.";
+  }
+
+  switch (code) {
+    case "23505":
+      return context === "machine"
+        ? "Machine ID already exists. Use a different ID."
+        : "That record already exists.";
+    case "23514":
+      return context === "alarm"
+        ? "The database rejected these values. A closed alarm needs both a cause and the action taken, and a job waiting for a part cannot be marked completed."
+        : context === "maintenance"
+          ? "The database rejected these values. Check that the status is valid, that both text fields are filled in, that the completion time is not before the start time, and that a job waiting for a part has not been given a completion time."
+          : "One of the fields failed a database validation check. Review the values and try again.";
+    case "42501":
+      return context === "machine"
+        ? "Your role does not allow this change. Only Admin can manage machines."
+        : "Your role does not allow this change.";
+    case "23503":
+      if (action !== "delete") return "This record is still referenced by other data and cannot be changed this way.";
+      return context === "machine"
+        ? "This machine is referenced by an alarm or maintenance record, so it cannot be deleted. Use Archive instead: the machine disappears from the active list while its history stays intact."
+        : "This record is still referenced by other data, so it cannot be deleted.";
+    default:
+      break;
+  }
+
+  const text = message ?? "";
+  if (/violates not-null constraint/i.test(text)) return "A required field was empty. Fill in every required field and try again.";
+  if (/violates foreign key constraint/i.test(text)) return "A record this one points at no longer exists. Reload the page and try again.";
+  if (/duplicate key value/i.test(text)) return "That record already exists.";
+  if (/only update alarm workflow fields/i.test(text)) return "Technicians may only change the cause, the action taken and the status. Ask an Admin to change the rest.";
+  if (/cannot change maintenance ownership/i.test(text)) return "Only an Admin can move a maintenance job to a different technician or machine.";
+
+  return message ? String(message) : "The change could not be saved. Try again.";
+}

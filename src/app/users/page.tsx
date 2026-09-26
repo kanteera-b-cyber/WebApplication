@@ -22,7 +22,7 @@ import {
   tableHead,
   tableRow,
 } from "@/features/operations/module-styles";
-import type { AppRole } from "@/lib/operations/types";
+import { APP_ROLE_LABELS, APP_ROLES, type AppRole } from "@/lib/operations/types";
 
 type Profile = { id: string; display_name: string; role: AppRole | string };
 
@@ -73,7 +73,7 @@ export default function UsersPage() {
       <ModuleHeader role={role} />
       <div className={heading}><div className={headingCopy}><p className={`${eyebrow} ${eyebrowAccent}`}>CONTROL / USERS</p><h1 className={headingTitle}>User management</h1><p className={headingLead}>Review profiles and assign Admin or Technician access.</p></div></div>
       {error && <div className={moduleError} role="alert">{error}</div>}
-      {userLoading || loading ? <div className={moduleEmpty}>Loading users...</div> : role !== "admin" ? <div className={moduleEmpty}><ShieldCheck size={20} />You do not have permission to manage users.</div> : <div className={tableCard}><div className={tableHead}><span>Name</span><span>User ID</span><span>Role</span><span>Access</span></div>{profiles.map((profile) => <div className={tableRow} key={profile.id}><strong className={rowStrong}>{profile.display_name}</strong><span className="truncate text-[10px] text-[#a3adb8]">{profile.id}</span><select className={select} value={profile.role} onChange={(event) => void updateRole(profile, event.target.value as AppRole)} aria-label={`Role for ${profile.display_name}`}><option value="technician">Technician</option><option value="admin">Admin</option></select><span className="text-[10px] text-[#a3adb8]">Protected by RLS</span></div>)}{profiles.length === 0 && <div className={moduleEmpty}>No profiles found.</div>}</div>}
+      {userLoading || loading ? <div className={moduleEmpty}>Loading users...</div> : role !== "admin" ? <div className={moduleEmpty}><ShieldCheck size={20} />You do not have permission to manage users.</div> : <div className={tableCard}><div className={tableHead}><span>Name</span><span>User ID</span><span>Role</span><span>Access</span></div>{profiles.map((profile) => <div className={tableRow} key={profile.id}><strong className={rowStrong}>{profile.display_name}</strong><span className="truncate text-[10px] text-[color:var(--color-faint)]">{profile.id}</span><select className={select} value={profile.role} onChange={(event) => void updateRole(profile, event.target.value as AppRole)} aria-label={`Role for ${profile.display_name}`}>{APP_ROLES.map((role) => <option value={role} key={role}>{APP_ROLE_LABELS[role]}</option>)}</select><span className="text-[10px] text-[color:var(--color-faint)]">Protected by RLS</span></div>)}{profiles.length === 0 && <div className={moduleEmpty}>No profiles found.</div>}</div>}
       <p className={moduleFootnote}>Role changes are protected by Supabase Row Level Security. Never expose a Service Role Key in the browser.</p>
     </main>
   );
