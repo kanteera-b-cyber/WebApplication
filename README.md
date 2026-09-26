@@ -1,133 +1,154 @@
-# ForgeOps — Alarm & Maintenance Management System
+# ForgeOps — ระบบจัดการ Alarm และงานบำรุงรักษา
 
-Web application for factory automation teams to manage machine master data, alarms, maintenance work and operational status. The project follows the Programming in Automation Systems assignment requirements.
+Web application สำหรับทีมงาน Automation ในโรงงาน ใช้จัดการข้อมูลเครื่องจักรหลัก (Machine Master), เหตุแจ้งเตือนเครื่องจักร (Alarm) และงานบำรุงรักษา (Maintenance) พร้อมสถานะการทำงานแบบเรียลไทม์ โปรเจกต์นี้จัดทำตามข้อกำหนดวิชา *Programming in Automation Systems*
 
-## 1. Objectives
+![CI](https://github.com/kanteera-b-cyber/WebApplication/actions/workflows/ci.yml/badge.svg)
 
-- Provide a single operations workspace for production machines.
-- Record, investigate and close machine alarms.
-- Record maintenance work and completion status.
-- Show live machine, alarm and maintenance summaries.
-- Enforce Admin and Technician permissions at both the UI and Supabase Row Level Security (RLS) layers.
-- Use contemporary web technologies with Supabase, Next.js, Tailwind CSS, GitHub Actions and Vercel.
+## 1. วัตถุประสงค์
 
-## 2. Technology
+- ให้มีพื้นที่ทำงาน (workspace) เดียวสำหรับเครื่องจักรในสายการผลิต
+- บันทึก ตรวจสอบสาเหตุ และปิดเหตุแจ้งเตือนของเครื่องจักร
+- บันทึกงานบำรุงรักษาและสถานะการดำเนินงาน
+- แสดงสรุปจำนวนเครื่องจักร เหตุแจ้งเตือน และงานบำรุงรักษาแบบเรียลไทม์
+- บังคับสิทธิ์ของ Admin และ Technician ทั้งที่ชั้น UI และที่ชั้น Supabase Row Level Security (RLS)
+- ใช้เทคโนโลยีสมัยใหม่ ได้แก่ Supabase, Next.js, Tailwind CSS, GitHub Actions และ Vercel
 
-- Next.js 16 App Router + TypeScript
-- React 19
-- Tailwind CSS 4
-- Supabase Authentication, PostgreSQL and RLS
-- GitHub Actions CI
-- Vercel deployment
-- AI-assisted requirement analysis, code generation, debugging and documentation
+## 2. เทคโนโลยีที่ใช้
 
-## 3. Main features
+| รายการ | เวอร์ชัน / รายละเอียด |
+| --- | --- |
+| Next.js | 16 App Router + TypeScript |
+| React | 19 |
+| Tailwind CSS | 4 (ผ่าน `@theme` และ utility classes ทั้งหมด) |
+| Supabase | Authentication, PostgreSQL, Row Level Security |
+| GitHub | เก็บ Source Code และประวัติการพัฒนา |
+| GitHub Actions | Continuous Integration (CI) |
+| Vercel | การ Deploy ระบบ |
+| AI | ช่วยวิเคราะห์โจทย์ เขียนโค้ด หาและแก้บั๊ก จัดทำเอกสาร |
 
-### Authentication and roles
+## 3. Function หลักของระบบ
 
-- Email/password login and logout through Supabase Authentication.
-- New users can sign up from the login screen and choose `Technician` or `Admin`; the selected role is validated by the database trigger.
-- `Admin` and `Technician` roles stored in `public.profiles`.
-- Admin: full Machine CRUD, profile/role management, alarm and maintenance management.
-- Technician: read machines and dashboard, create alarms, update alarm workflow fields, and manage assigned maintenance records.
-- The Next.js `proxy.ts` protects application routes, while PostgreSQL RLS remains the final authorization boundary.
+### 3.1 ระบบผู้ใช้งาน (Authentication & Role)
 
-#### Role capability matrix
+- Login และ Logout โดยใช้ Supabase Authentication แบบอีเมล/รหัสผ่าน
+- ผู้ใช้ใหม่สมัครสมาชิกจากหน้า Login และเลือก Role เป็น `Technician` หรือ `Admin` โดย Role ที่เลือกถูกตรวจสอบซ้ำที่ชั้นฐานข้อมูลอีกครั้ง
+- Role ทั้งสองเก็บไว้ในตาราง `public.profiles`
+- **Admin**: จัดการ Machine, Alarm, Maintenance และข้อมูลหลักของระบบได้ทั้งหมด
+- **Technician**: ดูข้อมูลเครื่องจักรและ Dashboard, บันทึก/แก้ไข Maintenance ที่ได้รับมอบหมาย, เปลี่ยนสถานะ Alarm และบันทึก Alarm ใหม่
+- Next.js `proxy.ts` ทำหน้าที่ป้องกันเส้นทาง (route protection) ส่วน PostgreSQL RLS เป็นขอบเขตสิทธิ์การเข้าถึงขั้นสุดท้าย
 
-Every Technician capability required by the assignment, and the layer that enforces it:
+#### ตารางความสามารถตาม Role
 
-| Capability | UI | RLS policy | Extra database guard |
+| ความสามารถ | ชั้น UI | RLS Policy | ตัวป้องกันเพิ่มที่ฐานข้อมูล |
 | --- | --- | --- | --- |
-| View machine data | `machine-console.tsx` renders read-only, shows "View only" | `authenticated users read machines` | — |
-| Cannot add / edit / archive machines | `canManage = role === "admin"` hides every control | `admins manage machines` | — |
-| Create maintenance | Technician is forced to own the record | `admins or technicians create maintenance` | `set_record_actor()` sets `created_by`/`completed_at` |
-| Edit maintenance | `canEditRecord()` allows own records | `admins or assigned technicians update maintenance` | `set_record_actor()` forces `technician_id = auth.uid()` |
-| Change alarm status | `canManageDetails` limits the form to status / cause / action | `technicians update alarm workflow` | `set_record_actor()` raises on any other field change |
-| View dashboard | No role gate | `authenticated users read alarms` / `authenticated users read maintenance` | — |
-| Cannot escalate to Admin | `/users` is Admin-only and redirects otherwise | `admins manage profiles` | — |
+| ดูข้อมูลเครื่องจักร | `machine-console.tsx` แสดงแบบอ่านอย่างเดียว ขึ้นว่า "View only" | `authenticated users read machines` | — |
+| เพิ่ม / แก้ / Archive เครื่องจักร | `canManage = role === "admin"` ซ่อนปุ่มทั้งหมด | `admins manage machines` | — |
+| บันทึก Maintenance | ระบบบังคับให้ Technician เป็นเจ้าของงาน | `admins or technicians create maintenance` | `set_record_actor()` ตั้ง `created_by` / `completed_at` |
+| แก้ไข Maintenance | `canEditRecord()` อนุญาตเฉพาะงานของตัวเอง | `admins or assigned technicians update maintenance` | `set_record_actor()` บังคับ `technician_id = auth.uid()` |
+| เปลี่ยนสถานะ Alarm | `canManageDetails` จำกัดฟอร์มเหลือ status / cause / action | `technicians update alarm workflow` | `set_record_actor()` ตอก error เมื่อพยายามแก้ field อื่น |
+| ดู Dashboard | ไม่มีการจำกัดตาม Role | `authenticated users read alarms` / `authenticated users read maintenance` | — |
+| เลื่อนสิทธิ์ตัวเองเป็น Admin | หน้า `/users` เข้าได้เฉพาะ Admin ที่เหลือจะถูก redirect | `admins manage profiles` | — |
 
-Two deliberate decisions worth noting for review:
+**ข้อสังเกต 2 ข้อสำหรับผู้ตรวจ:**
 
-- The assignment lists *change Alarm status* for Technician and *manage Alarm* for Admin. This build additionally lets a Technician **create** an alarm, because in a real plant the technician on the floor is normally the one who records it. The permission is `authenticated users create alarms`, and `created_by` is always forced to the signed-in user. Removing it is a one-line policy change if stricter separation is required.
-- A Technician may only edit maintenance records assigned to them, enforced by the `admins or assigned technicians update maintenance` policy. A Technician can never edit another technician's work.
+- โจทย์ระบุให้ Technician ทำ *เปลี่ยนสถานะ Alarm* และให้ Admin ทำ *จัดการ Alarm* แต่ระบบนี้เปิดให้ Technician **บันทึก Alarm** เพิ่มด้วย เพราะในโรงงานจริงช่างเทคนิคที่อยู่หน้าเครื่องมักเป็นผู้บันทึกเหตุแจ้งเตือน โดยใช้ policy `authenticated users create alarms` และ `created_by` ถูกบังคับเป็นผู้ใช้ที่ล็อกอินเสมอ หากต้องการแยกสิทธิ์เข้มขึ้น แก้ policy ได้ในบรรทัดเดียว
+- Technician แก้ไข Maintenance ได้เฉพาะรายการที่ได้รับมอบหมาย บังคับด้วย policy `admins or assigned technicians update maintenance` จึงไม่สามารถแก้งานของช่างคนอื่นได้
 
-Note on RLS feedback: when a write is rejected by row-level security, PostgREST filters the row out and returns `204 No Content` rather than an error, because zero rows matched. The consoles detect this and raise a permission error instead of reporting a false success (see `changeStatus` in `alarm-console.tsx` and `destroy` in `machine-console.tsx`).
+**หมายเหตุเรื่อง RLS:** เมื่อการเขียนข้อมูลถูก RLS ปฏิเสธ PostgREST จะกรองแถวนั้นทิ้งและตอบ `204 No Content` แทนที่จะตอบเป็น error เพราะไม่มีแถวที่ match ส่วนโค้ดแอปตรวจจับกรณีนี้แล้วและแสดงข้อความว่าไม่มีสิทธิ์ แทนที่จะรายงานว่าสำเร็จ (ดู `changeStatus` ใน `alarm-console.tsx` และ `destroy` ใน `machine-console.tsx`)
 
-### Machine Master
+### 3.2 Machine Master
 
-Fields: `Machine ID`, `Machine Name`, `Machine Type`, `Location`, `Status`.
+- **ฟิลด์**: Machine ID, Machine Name, Machine Type, Location, Status
+- **สถานะ**: `Running`, `Stop`, `Alarm`, `Maintenance`
+- Admin สามารถ Create, Read, Update และ Delete ได้
+- Machine ID ตรวจซ้ำทั้งที่เบราว์เซอร์และที่ฐานข้อมูลด้วย unique index แบบไม่สนตัวพิมพ์ (`lower(machine_id)`)
+- การ Archive เก็บเครื่องออกจากรายการที่ใช้งานอยู่ แต่คงประวัติ Alarm และ Maintenance ไว้ทั้งหมด และเครื่องที่ Archive แล้วจะถูกบังคับเป็นสถานะ `Stop` เพื่อไม่ให้ตัวนับบน Dashboard เพี้ยน
 
-Statuses: `Running`, `Stop`, `Alarm`, `Maintenance`.
+### 3.3 Alarm Record
 
-Admin can create, read, update and delete machines. Machine IDs are checked in the browser and with a case-insensitive unique database index.
+- **ฟิลด์**: Machine, Alarm Code, Alarm Description, Date/Time, Cause, Action Taken, Status
+- **สถานะ**: `Open`, `In Progress`, `Closed`
+- สามารถ Create, Read และ Update ได้
+- Alarm ต้องมีทั้ง Cause และ Action Taken ก่อนจึงจะปิดเป็น `Closed` ได้
+- Admin แก้ได้ทุก field · Technician แก้ได้เฉพาะ field ของ workflow ตามที่ policy อนุญาต
 
-### Alarm Record
+### 3.4 Maintenance Record
 
-Fields: Machine, Alarm Code, Description, Date/Time, Cause, Action Taken and Status.
+- **ฟิลด์**: Machine, Technician, Problem, Action Taken, Started At, Status และเวลาที่ปิดงาน
+- **สถานะ**: `In Progress`, `Completed`
+- สามารถ Create, Read และ Update ได้
+- Technician ถูกบังคับให้เป็นเจ้าของงานของตัวเองเท่านั้น
 
-Statuses: `Open`, `In Progress`, `Closed`.
+#### ตารางแสดงความครอบคลุมข้อกำหนด 3.2 – 3.4
 
-An alarm must have both Cause and Action Taken before it can be closed. Admins can edit all fields; Technicians can update the alarm workflow fields allowed by the database policy.
-
-### Maintenance Record
-
-Fields: Machine, Technician, Problem, Action Taken, Started At, Status and completion time.
-
-Statuses: `In Progress`, `Completed`.
-
-Technicians are selected from `profiles` and the database trigger ensures a Technician can only own their own maintenance work.
-
-#### Assignment requirement coverage
-
-Every data requirement in sections 3.2 to 3.4, mapped to the code that implements it. All rows below were verified against the live database.
-
-| Requirement | Implementation | Verified |
+| ข้อกำหนด | การดำเนินการ | ผลการตรวจสอบ |
 | --- | --- | --- |
-| 3.2 Machine fields: Machine ID, Machine Name, Machine Type, Location, Status | `machines` table, `machine-console.tsx` modal | 5/5 fields round-trip |
-| 3.2 Statuses: Running, Stop, Alarm, Maintenance | `machine_status` enum | all 4 accepted |
-| 3.2 Machine Master CRUD | `machine-console.tsx` add / edit / archive / restore / delete | Create, Read, Update, Delete all pass |
-| 3.3 Alarm fields: Machine, Alarm Code, Alarm Description, Date/Time, Cause, Status | `alarms` table, `alarm-console.tsx` modal | 6/6 fields round-trip |
-| 3.3 Statuses: Open, In Progress, Closed | `alarm_status` enum | all 3 transitions pass |
-| 3.3 Alarm Record Create, Read, Update | `alarm-console.tsx` | all pass |
-| 3.4 Maintenance Record Create, Read, Update | `maintenance-console.tsx` | all pass |
+| 3.2 ฟิลด์ Machine ID, Machine Name, Machine Type, Location, Status | ตาราง `machines` + modal ใน `machine-console.tsx` | ครบ 5/5 ฟิลด์ |
+| 3.2 สถานะ Running, Stop, Alarm, Maintenance | enum `machine_status` | รับได้ครบทั้ง 4 ค่า |
+| 3.2 Machine Master CRUD | เพิ่ม / แก้ / archive / restore / ลบ ใน `machine-console.tsx` | ผ่านครบทั้ง 4 การกระทำ |
+| 3.3 ฟิลด์ Machine, Alarm Code, Alarm Description, Date/Time, Cause, Status | ตาราง `alarms` + modal ใน `alarm-console.tsx` | ครบ 6/6 ฟิลด์ |
+| 3.3 สถานะ Open, In Progress, Closed | enum `alarm_status` | ทั้ง 3 ค่าเปลี่ยนได้ |
+| 3.3 Alarm Record Create, Read, Update | `alarm-console.tsx` | ผ่านทั้งหมด |
+| 3.4 Maintenance Record Create, Read, Update | `maintenance-console.tsx` | ผ่านทั้งหมด |
 
-**On Machine Master Delete.** Delete is available to Admin on every row. A machine that is still referenced by an alarm or a maintenance record cannot be removed, because the database rejects it with a foreign-key violation; the console then tells the admin to use **Archive** instead. Archiving keeps the machine out of the active list while preserving every historical alarm and maintenance record, and an archived machine is forced to `Stop` so it never inflates the dashboard counters. This is a deliberate integrity choice rather than a missing feature, and both paths are reachable from the same row.
+**เรื่อง Delete ของ Machine Master:** ปุ่ม Delete แสดงให้ Admin ทุกแถว แต่เครื่องที่ยังถูกอ้างอิงโดย Alarm หรือ Maintenance จะถูกฐานข้อมูลปฏิเสธด้วย foreign key violation และระบบจะแนะนำให้ใช้ **Archive** แทน เพราะ Archive เก็บประวัติไว้ครบถ้วน นี่เป็นการตัดสินใจด้านความถูกต้องของข้อมูลอย่างตั้งใจ ไม่ใช่ฟีเจอร์ที่ขาด และเข้าถึงได้ทั้งสองทางจากแถวเดียวกัน
 
-#### Search, filter, dashboard, validation and database coverage
+### 3.5 Search และ Filter
 
-| Requirement | Implementation | Verified |
+| หน้า | เงื่อนไขที่ใช้กรอง | จำนวนเงื่อนไข |
 | --- | --- | --- |
-| 3.5 Search and filter, at least 2 conditions | Machines: text + status + archived scope. Alarms: text + status. Maintenance: text + status. Dashboard: text + time range | 3 conditions on Machines, 2 elsewhere |
-| 3.5 Searchable targets: Machine, Status, Alarm Code, Technician, Date | `machine_id` and status on Machines, `alarm_code` on Alarms, technician name on Maintenance, 24h/7d range on Dashboard | all five targets reachable |
-| 3.6 Total machine count | Metric card "Total machines" plus donut centre | live from `/api/dashboard` |
-| 3.6 Running, Stop, Alarm, Maintenance counts | Donut chart with a legend that prints each count | all four counted server-side |
-| 3.6 Alarm and Maintenance counts | Metric cards "Active alarms" and "Maintenance records" | live from `/api/dashboard` |
-| 3.6 Chart or summary data | Donut chart, legend, running-rate metric and a maintenance completion bar | rendered from live data |
-| 3.7 Required fields cannot be blank | `not null` plus `length(btrim(...)) > 0` check constraints on every text column | 13/13 validation probes pass |
-| 3.7 Machine ID cannot repeat | `machines_machine_id_lower_unique` index on `lower(machine_id)` | duplicate and case-variant duplicate both rejected |
-| 3.7 Correct format, no unsuitable values | `machines_machine_id_format` regex, `app_role` / `machine_status` / `alarm_status` enums | bad format, wrong length and unknown enum values rejected |
-| 3.7 Warning message on invalid input | `describeWriteError` maps each Postgres error code to an actionable sentence, rendered in `role="alert"` | 23505, 23514, 23503, 23514, 42501 all mapped |
-| 3.8 Supabase as the database | Supabase Postgres with the Auth, Data and RLS integrations | in use |
-| 3.8 Tables users/profiles, machines, alarms, maintenance_records | `profiles`, `machines`, `alarms`, `maintenance_records` | all four present |
-| 3.8 Sensible relationships | `alarms.machine_id` and `maintenance_records.machine_id` to `machines.id`; `technician_id`, `created_by`, `closed_by` to `profiles.id` | foreign keys enforced with `on delete restrict` |
-| 3.8 Secrets in Environment Variables, never committed | `.env.local` holds the values and `.gitignore` excludes `.env*` | no `.env` file is tracked |
-| 3.8 No Service Role or Secret key in client code | The client bundle reads only `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` | repository-wide scan is clean |
-| 3.9 Source code stored on GitHub | `origin` points at the project repository | push the local history |
-| 3.9 Commit history during development, not one upload at the end | Nine incremental commits covering schema, UI, Tailwind migration, login error handling and the role fix | `git log --oneline` |
-| 3.9 README describing the project | This document | covers setup, database, roles, deployment and AI disclosure |
+| Machines | ค้นข้อความ (ID / ชื่อ / ชนิด / ตำแหน่ง) + สถานะ + ขอบเขต archived | 3 |
+| Alarms | ค้นข้าความ (เครื่อง / code / รายละเอียด) + สถานะ | 2 |
+| Maintenance | ค้นข้อความ (ปัญหา / งานที่ทำ / เครื่อง / ช่าง) + สถานะ | 2 |
+| Dashboard | ค้นข้อความ + ช่วงเวลา 24 ชั่วโมง / 7 วัน | 2 |
 
+ครอบคลุมเป้าหมายการค้นหาครบทั้ง 5 หัวข้อตามโจทย์ ได้แก่ Machine, Status, Alarm Code, Technician และ Date
 
-### Search, filter and dashboard
+### 3.6 Dashboard
 
-- Text search and status filters are available on Machines, Alarms and Maintenance.
-- Dashboard totals are loaded from the authenticated `/api/dashboard` route.
-- Machine status donut, alarm queue, machine health list and maintenance completion summary are data-driven.
-- Dashboard time range supports the last 24 hours and last 7 days for the alarm queue.
-- Reports page exports the current machine, alarm and maintenance records as CSV.
+- แสดงจำนวนเครื่องจักรทั้งหมด (การ์ด "Total machines" และตัวเลขกลาง donut)
+- แสดงจำนวนเครื่องจักรแยกตามสถานะ Running, Stop, Alarm และ Maintenance (legend ของกราฟ donut พิมพ์จำนวนแต่ละสถานะ)
+- แสดงจำนวน Alarm ที่ยัง active และจำนวนงาน Maintenance
+- สรุปข้อมูลเป็นกราฟได้ ได้แก่ กราฟ donut แหวนสถานะเครื่องจักร, คิวเหตุแจ้งเตือน, อัตราการทำงานเครื่องจักร และแถบสรุปอัตราการปิดงานบำรุงรักษา
+- ข้อมูลทั้งหมดมาจาก route `/api/dashboard` ที่ต้องผ่านการยืนยันตัวตนก่อน
+- หน้า Reports ส่งออกข้อมูล Machine, Alarm และ Maintenance ปัจจุบันเป็นไฟล์ CSV
 
-## 4. Database structure
+### 3.7 Input Validation
 
-Run the migrations in Supabase SQL Editor in order:
+- ช่องข้อมูลสำคัญห้ามว่าง — บังคับด้วย `not null` และ check constraint `length(btrim(...)) > 0` บนคอลัมน์ข้อความทุกคอลัมน์
+- Machine ID ห้ามซ้ำ — unique index `machines_machine_id_lower_unique` บน `lower(machine_id)` และซ้ำแบบตัวพิมพ์ต่างกันก็ถูกปฏิเสธเช่นกัน
+- รูปแบบข้อมูลถูกต้อง — Machine ID ต้องตรง regex `^[A-Za-z0-9][A-Za-z0-9._-]{1,31}$` และค่าของ Status ต้องเป็น enum ที่กำหนดไว้เท่านั้น
+- แสดงข้อความแจ้งเตือนเมื่อข้อมูลไม่ถูกต้อง — ฟังก์ชัน `describeWriteError` แปลงรหัส error ของ Postgres แต่ละแบบเป็นข้อความที่ระบุวิธีแก้ได้ แสดงผ่าน `role="alert"`
+
+ผลการตรวจสอบ Input Validation ด้วยการยิงคำขอจริง 13 รายการ **ผ่านทั้ง 13 รายการ** ได้แก่ ช่องว่าง, Machine ID ซ้ำ, Machine ID ซ้ำแบบต่างตัวพิมพ์, รูปแบบผิด, สั้นเกิน, ยาวเกิน, Status ไม่มีในระบบ, Alarm Code ว่าง, Alarm Description ว่าง, Maintenance Problem ว่าง และ Status ที่ไม่มีในระบบ
+
+## 4. โครงสร้างฐานข้อมูล
+
+### 4.1 ตารางข้อมูล
+
+| ตาราง | คอลัมน์ | ความสัมพันธ์ |
+| --- | --- | --- |
+| `profiles` | `id`, `display_name`, `role` | 1 profile ต่อผู้ใช้ Supabase Auth |
+| `machines` | `id`, `machine_id`, `machine_name`, `machine_type`, `location`, `status`, `is_archived`, `archived_at`, `archived_by` | — |
+| `alarms` | `id`, `machine_id`, `alarm_code`, `description`, `occurred_at`, `cause`, `action_taken`, `status`, `created_by`, `closed_by`, `closed_at` | `machine_id` → `machines.id` |
+| `maintenance_records` | `id`, `machine_id`, `technician_id`, `problem`, `action_taken`, `started_at`, `completed_at`, `status`, `created_by` | `machine_id` → `machines.id`, `technician_id` → `profiles.id` |
+
+เปิด RLS ไว้บนทุกตารางของแอป Foreign key ใช้ `on delete restrict` เพื่อไม่ให้ประวัติที่อ้างอิงอยู่ถูกลบทิ้งโดยไม่ตั้งใจ
+
+### 4.2 การติดตั้งฐานข้อมูล (แนะนำวิธีเร็วที่สุด)
+
+คัดลอกเนื้อหาไฟล์ `supabase/setup.sql` ไปวางใน **Supabase → SQL Editor** แล้วกด **Run** ไฟล์นี้รันซ้ำได้ (idempotent) จึงไม่เป็นไรถ้ารันมากกว่าหนึ่งครั้ง โดยจะทำงาน 4 อย่าง:
+
+1. ซ่อม trigger การสมัครสมาชิกให้ใช้ Role ที่ผู้ใช้เลือกจริง
+2. เลื่อนบัญชีแรกที่สมัครเป็น Admin เพื่อให้เริ่มจัดการข้อมูลได้
+3. ใส่ข้อมูลตัวอย่าง 4 เครื่อง, 2 alarm และ 1 maintenance
+4. แสดงตารางสรุปบัญชีและ Role ทั้งหมดท้ายไฟล์
+
+จากนั้นออกจากระบบแล้วเข้าใหม่ เนื่องจากระบบอ่านค่า Role เพียงครั้งเดียวตอนหน้าเว็บโหลด
+
+### 4.3 การติดตั้งสคีมาทีละไฟล์
+
+หากต้องการติดตั้งสคีมาจากศูนย์ ให้รันไฟล์ต่อไปนี้ใน Supabase SQL Editor ตามลำดับ
 
 1. `supabase/migrations/001_initial_schema.sql`
 2. `supabase/migrations/002_assignment_hardening.sql`
@@ -135,71 +156,45 @@ Run the migrations in Supabase SQL Editor in order:
 4. `supabase/migrations/004_machine_soft_delete.sql`
 5. `supabase/migrations/005_signup_role_enforcement.sql`
 
-Optional local demo data is available in `supabase/seed.sql`. Run it after creating the first Admin profile. If `001_initial_schema.sql` was already applied before this update, run only `002_assignment_hardening.sql`.
+ข้อมูลตัวอย่างสำหรับทดลองใช้งานเพิ่มเติมอยู่ใน `supabase/seed.sql`
 
-Note that `003_signup_role.sql` only replaces the `public.handle_new_user()` function; the `on_auth_user_created` trigger itself is created by `001_initial_schema.sql`. `005_signup_role_enforcement.sql` re-applies the function *and* re-creates the trigger, so it repairs a project where the deployed function was an older revision that hardcoded the `technician` role. See [Sign-up always returns Technician](#sign-up-always-returns-technician).
+> **ข้อควรระวัง:** `003_signup_role.sql` เขียนทับเฉพาะฟังก์ชัน `public.handle_new_user()` ส่วน trigger `on_auth_user_created` ถูกสร้างโดย `001_initial_schema.sql` ดังนั้น `005_signup_role_enforcement.sql` จึงเขียนทับทั้งฟังก์ชันและสร้าง trigger ใหม่อีกครั้ง เพื่อซ่อมโปรเจกต์ที่มีฟังก์ชันเวอร์ชันเก่าซึ่งกำหนด role เป็น `technician` แบบตายตัว
 
-Tables and relationships:
+## 5. วิธีติดตั้งและใช้งาน
 
-- `profiles(id, display_name, role)` — one profile per Supabase Auth user.
-- `machines(id, machine_id, machine_name, machine_type, location, status)`.
-- `alarms(id, machine_id, alarm_code, description, occurred_at, cause, action_taken, status, created_by, closed_by, closed_at)`.
-- `maintenance_records(id, machine_id, technician_id, problem, action_taken, started_at, completed_at, status, created_by)`.
+### 5.1 ความต้องการของระบบ
 
-`alarms.machine_id` and `maintenance_records.machine_id` reference `machines.id`. `technician_id`, `created_by` and `closed_by` reference `profiles.id`. RLS is enabled on all application tables.
+- Node.js เวอร์ชัน 20.9 ขึ้นไป
+- โปรเจกต์ Supabase 1 โปรเจกต์
+- บัญชีผู้ใช้ Supabase แยกสำหรับแต่ละ Role
 
-## 5. Local setup
-
-### Requirements
-
-- Node.js 20+
-- A Supabase project
-- A Supabase user for each role
-
-### Install and configure
+### 5.2 ติดตั้งและตั้งค่า
 
 ```bash
 npm install
 cp .env.example .env.local
 ```
 
-Set these values in `.env.local`:
+กำหนดค่าในไฟล์ `.env.local`
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-Never put a Supabase Service Role Key in a `NEXT_PUBLIC_*` variable or in client-side code.
+> ห้ามใส่ Supabase Service Role Key ในตัวแปร `NEXT_PUBLIC_*` หรือในโค้ดฝั่ง client โดยเด็ดขาด
 
-### Bootstrap the database in one step
+### 5.3 ปิดการยืนยันอีเมลเพื่อให้สมัครสมาชิกได้
 
-Paste `supabase/setup.sql` into the Supabase SQL Editor and press Run. It is idempotent, so it is safe to run more than once. It:
+ไปที่ **Supabase Dashboard → Authentication → Sign In / Providers → Email** แล้ว **ปิด** ตัวเลือก **Confirm email**
 
-1. repairs the sign-up trigger so the chosen role is honoured;
-2. promotes the oldest account to Admin so you can manage records;
-3. inserts four demo machines, two alarms and one maintenance record;
-4. prints a verification table of every account and role.
+หากไม่ทำขั้นตอนนี้ ฟอร์มสมัครสมาชิกจะใช้งานไม่ได้ในโปรเจกต์ใหม่ เพราะบริการอีเมลในตัวของ Supabase มีโควตาต่อชั่วโมงน้อยมาก อีเมลยืนยันจึงไม่ถูกส่งออกไป
 
-Then sign out and sign in again, because the role is read once when the app mounts.
+### 5.4 แก้ปัญหาสมัครสมาชิกแล้วได้ Role เป็น Technician ทั้งหมด
 
-To apply the schema from scratch instead, run the migrations in [section 4](#4-database-structure) individually and promote your own account with:
+**อาการ:** เลือก Role **Admin** ในฟอร์มสมัครสมาชิก แต่เข้าเว็บแล้วระบบแสดง **Technician** และปุ่มสำหรับ Admin ไม่ปรากฏ
 
-```sql
-update public.profiles set role = 'admin' where id = 'AUTH-USER-UUID-HERE';
-```
-
-### Allow sign-up without email confirmation
-
-Supabase Dashboard → **Authentication → Sign In / Providers → Email** → turn off **Confirm email**.
-
-Without this step the sign-up form cannot complete on a new project, because Supabase's built-in mail service has a small hourly quota and the confirmation email is never delivered. See [Login troubleshooting](#login-troubleshooting).
-
-### Sign-up always returns Technician
-
-**Symptom:** selecting **Admin** on the sign-up form creates the account, but the app then shows **Technician** and the Admin-only controls stay hidden.
-
-**Confirm it** with this query in the Supabase SQL Editor. `requested_role` says `admin` while `role` says `technician`:
+**ตรวจสอบ** ด้วยคำสั่งนี้ใน Supabase SQL Editor จะเห็นว่า `requested_role` เป็น `admin` แต่ `role` เป็น `technician`
 
 ```sql
 select u.email, p.role, u.raw_user_meta_data ->> 'role' as requested_role
@@ -208,21 +203,11 @@ join public.profiles p on p.id = u.id
 order by u.created_at desc;
 ```
 
-**Cause:** the deployed `public.handle_new_user()` is an older revision that hardcodes `'technician'` and never reads the role from `raw_user_meta_data`. Migration `003` only replaces that function and assumes the trigger was wired up by `001`, so the fix is easy to miss.
+**สาเหตุ:** ฟังก์ชัน `public.handle_new_user()` ที่ใช้งานอยู่เป็นเวอร์ชันเก่าที่กำหนด role เป็น `technician` แบบตายตัว และไม่ได้อ่าน role จาก `raw_user_meta_data` เลย
 
-**Fix:** run `supabase/migrations/005_signup_role_enforcement.sql` in the SQL Editor, then sign up again. It is idempotent, so re-running it is safe.
+**วิธีแก้:** รัน `supabase/migrations/005_signup_role_enforcement.sql` ใน SQL Editor แล้วสมัครสมาชิกใหม่ ไฟล์นี้รันซ้ำได้
 
-**Promote an existing account.** A profile created before the fix keeps its old role, and an account created directly in the Supabase dashboard always becomes Technician because the dashboard sends no role metadata. Run this with the user's UUID from Authentication → Users:
-
-```sql
-update public.profiles
-set role = 'admin'
-where id = 'AUTH-USER-UUID-HERE';
-```
-
-### Create the first Admin
-
-Sign up from `http://localhost:3000/login` with the **Admin** role, then promote the profile in the Supabase SQL Editor:
+**การเลื่อนบัญชีเดิมเป็น Admin:** โปรไฟล์ที่สร้างก่อนแก้ไขจะยังคง role เดิม และบัญชีที่สร้างผ่านหน้า Dashboard ของ Supabase จะเป็น Technician เสมอ เพราะ Dashboard ไม่ได้ส่งข้อมูล role มา ใช้คำสั่งนี้โดยแทนค่า UUID จาก **Authentication → Users**
 
 ```sql
 update public.profiles
@@ -230,42 +215,36 @@ set role = 'admin'
 where id = 'AUTH-USER-UUID-HERE';
 ```
 
-The UUID is shown in Supabase → Authentication → Users, or in the app under **Users**. Every later sign-up is given the role selected on the signup form by the `on_auth_user_created` trigger.
-
-### Run locally
+### 5.5 รันระบบ
 
 ```bash
 npm run dev
 ```
 
-Open `http://localhost:3000/login`.
+เปิด `http://localhost:3000/login`
 
-### Login troubleshooting
+### 5.6 แก้ปัญหาการเข้าสู่ระบบ
 
-The most common cause of a blocked sign-up is the **Confirm email** setting. When it is enabled, Supabase does not return a session after sign-up and instead requires a confirmation email. On a fresh project Supabase uses a built-in mail service with a very small hourly quota, so the email is never sent and the account can never be used.
+สาเหตุที่พบบ่อยที่สุดคือค่า **Confirm email** เมื่อเปิดใช้งาน Supabase จะไม่คืน session หลังสมัครสมาชิก แต่จะส่งอีเมลยืนยันแทน ซึ่งในโปรเจกต์ใหม่มักไม่ถูกส่ง
 
-Supabase Dashboard → **Authentication → Sign In / Providers → Email**, then either:
-
-- turn off **Confirm email** so sign-up returns a session immediately (recommended for local development and assignment demos), or
-- configure a real SMTP provider under **Authentication → Emails** and leave confirmation enabled (recommended for production).
-
-Verify the current project state at any time:
+ตรวจสถานะปัจจุบันของโปรเจกต์ได้ด้วยคำสั่ง
 
 ```bash
 curl -s "$NEXT_PUBLIC_SUPABASE_URL/auth/v1/settings" -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY"
 ```
 
-`mailer_autoconfirm: true` means sign-up returns a session with no email step. `mailer_autoconfirm: false` means confirmation is required.
+- `mailer_autoconfirm: true` หมายถึงสมัครสมาชิกแล้วเข้าใช้งานได้ทันทีโดยไม่ต้องยืนยันอีเมล
+- `mailer_autoconfirm: false` หมายถึงต้องยืนยันอีเมลก่อน
 
-Other checks:
+ปัญหาอื่นที่ควรตรวจสอบ
 
-- Create the user under Supabase Authentication → Users.
-- Confirm the email address before signing in when Email Confirmation is enabled.
-- Restart the dev server after changing `.env.local`.
-- If the browser returns to `/login` after a successful sign-in, clear the site cookies for `localhost` and try again.
-- Never share a password or Supabase key in an error report.
+- สร้างผู้ใช้ได้ที่ Supabase → Authentication → Users
+- ยืนยันอีเมลก่อนเข้าสู่ระบบเมื่อเปิด Email Confirmation
+- รีสตาร์ท dev server หลังแก้ไข `.env.local`
+- หากเบราว์เซอร์กลับไปที่ `/login` แม้ล็อกอินสำเร็จ ให้ล้าง cookie ของ `localhost` แล้วลองใหม่
+- ห้ามส่งรหัสผ่านหรือคีย์ของ Supabase มาในรายงานปัญหา
 
-## 6. Verification
+## 6. การตรวจสอบคุณภาพ
 
 ```bash
 npm run lint
@@ -273,76 +252,105 @@ npm run typecheck
 npm run build
 ```
 
-The GitHub Actions workflow in `.github/workflows/ci.yml` runs the same checks automatically on every push to `main` and on every pull request. It performs four named stages so the Actions tab shows exactly which one failed:
+### 6.1 GitHub Actions (CI)
 
-| Stage | Command |
+Workflow ที่ `.github/workflows/ci.yml` ทำงานอัตโนมัติทุกครั้งที่ push เข้า `main` และทุก pull request แบ่งเป็น 5 ขั้นตอนที่มีชื่อชัดเจน เพื่อให้แท็บ Actions แสดงว่าขั้นตอนใดล้มเหลว
+
+| ขั้นตอน | คำสั่ง |
 | --- | --- |
 | 1. Install dependencies | `npm ci` |
 | 2. Lint | `npm run lint` |
-| 3. Typecheck | `npm run typecheck` |
-| 4. Build | `npm run build` |
+| 3. Generate Next.js route types | `npx next typegen` |
+| 4. Typecheck | `npm run typecheck` |
+| 5. Build | `npm run build` |
 
-The run finishes with a `CI result` table on the job summary page and the workflow itself reports Passed or Failed. A `concurrency` group cancels a superseded run when the same branch is pushed again, so the badge always reflects the newest commit.
+ต้องรัน `next typegen` ก่อนตรวจ TypeScript เพราะชนิดอย่าง `LayoutProps` ถูกสร้างไว้ใน `.next/types/` ซึ่งอยู่ใน `.gitignore` เครื่องที่ checkout ใหม่จึงไม่มีไฟล์นี้
 
-Manual acceptance checks:
+เมื่อการทำงานจบจะมีตารางสรุปผล `CI result` แสดงบนหน้า job summary และ workflow จะรายงานผลเป็น Passed หรือ Failed ชัดเจน กลุ่ม `concurrency` จะยกเลิกการทำงานเก่าที่ค้างอยู่เมื่อมีการ push branch เดิมซ้ำ ทำให้สถานะบน badge สะท้อน commit ล่าสุดเสมอ
 
-- Anonymous users are redirected to `/login` from every application module.
-- Technician cannot see or successfully mutate Admin-only machine controls.
-- A newly created Machine can be edited and deleted using the database-generated ID.
-- An Alarm can be created, edited, assigned a cause/action and closed.
-- A Maintenance record can be created by a Technician, updated and completed.
-- Search and status filters return the expected rows.
-- Dashboard counts and machine/alarm views come from Supabase.
+### 6.2 รายการตรวจสอบด้วยตนเอง
 
-## 7. Deployment
+- ผู้ใช้ที่ยังไม่ล็อกอินจะถูก redirect ไปที่ `/login` จากทุกโมดูลของระบบ
+- Technician มองไม่เห็นและเรียกใช้ปุ่มจัดการเครื่องจักรของ Admin ไม่ได้
+- เครื่องจักรที่สร้างใหม่สามารถแก้ไขและลบได้โดยใช้ ID ที่ฐานข้อมูลสร้างให้
+- Alarm สามารถสร้าง แก้ไข กำหนด Cause/Action และปิดได้
+- Maintenance สามารถสร้างโดย Technician แก้ไข และปิดงานได้
+- การค้นหาและกรองตามสถานะคืนค่าที่ถูกต้อง
+- ตัวเลขบน Dashboard และมุมมองเครื่องจักร/Alarm มาจาก Supabase โดยตรง
 
-1. Push this project to GitHub:
+## 7. การ Deploy
+
+1. ส่งโค้ดขึ้น GitHub
    ```bash
    git push -u origin main
    ```
-2. Sign in at [vercel.com](https://vercel.com) and choose **Add New → Project**, then import `kanteera-b-cyber/WebApplication`. Vercel detects Next.js 16 and needs no build settings.
-3. Before the first deploy, add the environment variables. Vercel asks for them during import, or add them later under **Project → Settings → Environment Variables**:
+2. เข้าเว็บ [vercel.com](https://vercel.com) เลือก **Add New → Project** แล้ว import repository `kanteera-b-cyber/WebApplication` ระบบจะตรวจจับ Next.js 16 ให้เอง ไม่ต้องตั้งค่าการ build
+3. ก่อน deploy ครั้งแรก ให้เพิ่มตัวแปรสภาพแวดล้อม (Vercel จะถามระหว่าง import หรือเพิ่มภายหลังที่ **Project → Settings → Environment Variables**)
 
-   | Name | Value |
+   | ชื่อตัวแปร | ค่า |
    | --- | --- |
    | `NEXT_PUBLIC_SUPABASE_URL` | `https://<project-ref>.supabase.co` |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | the `sb_publishable_...` key from Supabase → Project Settings → API |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | คีย์ `sb_publishable_...` จาก Supabase → Project Settings → API |
 
-   Enable them for **Production**, **Preview** and **Development**. The Service Role Key is never needed and must never be added.
-4. Run all five Supabase migrations (or `supabase/setup.sql`) against the Supabase project before testing.
-5. Deploy, then verify `/login`, `/dashboard`, `/machines`, `/alarms` and `/maintenance` on the Vercel URL.
+   ติ๊กให้ครบทั้ง **Production**, **Preview** และ **Development** · ไม่จำเป็นต้องใช้และห้ามใส่ Service Role Key
+4. รัน migration ทั้ง 5 ไฟล์ (หรือ `supabase/setup.sql`) กับโปรเจกต์ Supabase ก่อนทดสอบ
+5. Deploy แล้วทดสอบ `/login`, `/dashboard`, `/machines`, `/alarms` และ `/maintenance` บน URL ของ Vercel
 
-Node.js 20.9 or newer is required; `package.json` declares `engines.node` so Vercel selects a compatible runtime.
+ระบบต้องการ Node.js เวอร์ชัน 20.9 ขึ้นไป โดย `package.json` ระบุ `engines.node` ไว้เพื่อให้ Vercel เลือก runtime ที่เข้ากันได้
 
 **GitHub repository:** https://github.com/kanteera-b-cyber/WebApplication
 
-**Vercel URL:** `[add the production Vercel URL here before submission]`
+**Vercel URL:** `[กรอก URL ของระบบที่ deploy แล้ว ก่อนส่งงาน]`
 
-### Styling with Tailwind CSS
+### 7.1 การจัดการสไตล์ด้วย Tailwind CSS
 
-The interface is built entirely with Tailwind CSS v4. Design tokens are declared once with `@theme` in `src/app/globals.css` (for example `--color-brand`, `--color-ink`, `--color-line`) and are consumed as ordinary utilities such as `bg-canvas`, `text-ink` and `border-line`. Utility strings that are reused across the module pages are collected in `src/features/operations/module-styles.ts` and `src/features/operations/dashboard-styles.ts` to avoid repeating the same long class list in seven files. There is no hand-written component CSS.
+หน้าตาของระบบสร้างด้วย Tailwind CSS v4 ทั้งหมด โดยกำหนด design token ครั้งเดียวด้วย `@theme` ในไฟล์ `src/app/globals.css` (เช่น `--color-brand`, `--color-ink`, `--color-line`) แล้วเรียกใช้เป็น utility ปกติ เช่น `bg-canvas`, `text-ink` และ `border-line`
 
-## 8. AI usage disclosure
+ชุด utility ที่ใช้ซ้ำในหลายหน้าถูกรวบรวมไว้ที่ `src/features/operations/module-styles.ts` และ `src/features/operations/dashboard-styles.ts` เพื่อไม่ให้เขียน class ยาวๆ ซ้ำกัน 7 ไฟล์ **ไม่มี CSS ที่เขียนขึ้นเองสำหรับ component ใดเลย**
 
-AI was used to:
+## 8. รายละเอียดการใช้ AI ในการพัฒนา
 
-- summarize the assignment requirements into functional and database tasks;
-- design the initial table relationships, roles and RLS policies;
-- draft the responsive UI and CRUD forms;
-- identify route-protection, validation and foreign-key issues;
-- assist with TypeScript, lint, build and debugging work;
-- improve README and deployment documentation.
+โจทย์อนุญาตให้ใช้ AI ช่วยในทุกขั้นตอน AI ถูกใช้ในงานนี้ดังนี้
 
-The developer verified the generated code, ran lint/build, applied Supabase migrations, and tested the acceptance flows with real Admin and Technician accounts before submission. No Service Role Key or other secret is included in the repository.
+| กิจกรรม | การใช้ AI | สิ่งที่มนุษย์ต้องตรวจสอบ |
+| --- | --- | --- |
+| วิเคราะห์ Requirement | อ่านโจทย์ แยกเป็นงานด้านฟังก์ชัน ฐานข้อมูล ความปลอดภัย UI CI และการ deploy พร้อมจัดทำตารางเทียบแต่ละข้อกำหนดกับโค้ดที่รองรับ | ยืนยันการตีความข้อกำหนดที่กำกวม เช่น กรณี Technician บันทึก Alarm ได้แม้โจทย์ไม่ได้ระบุ |
+| ออกแบบ Database | ออกแบบตารางทั้ง 4 enum, foreign key, check constraint, unique index, trigger และชุด RLS policy | ตัดสินนโยบายการเก็บข้อมูลของเครื่องที่มีประวัติ และยืนยันกฎ RLS ตรงกับการแบ่งสิทธิ์ที่ต้องการ |
+| เขียน Source Code | สร้างโครงสร้าง Next.js App Router, Supabase client, `proxy.ts`, โมดูล Machine / Alarm / Maintenance / Dashboard / Users / Reports / Settings และชั้น Tailwind | ตรวจทุกไฟล์ก่อน commit |
+| สร้าง UI/UX | ออกแบบระบบภาพ, design token ผ่าน `@theme` และพฤติกรรม responsive ของทุกหน้า | ตัดสินว่าหน้าตาตรงตามความต้องการ และตรวจที่ขนาดจอจริง |
+| เขียน SQL | เขียน migration 5 ไฟล์ รวมถึง `setup.sql` และ `seed.sql` | รันแต่ละไฟล์ใน Supabase SQL Editor เรียงตามลำดับและตรวจผลลัพธ์ |
+| Debug และแก้ Error | วินิจฉัยปัญหา role ตอนสมัครสมาชิก, คอลัมน์ `is_archived` ที่หายไป, ข้อความแจ้งเตือนที่ทำให้เข้าใจผิด, พฤติกรรม `204 No Content` ของ RLS และ layout หน้า login ที่พังหลังแปลง CSS | ทำซ้ำพฤติกรรมที่พบและยืนยันการแก้ไขในระบบที่รันอยู่ |
+| สร้าง Test | เขียนสคริปต์ทดสอบที่สมัครบัญชีจริงกับ Supabase และตรวจสิทธิ์ตาม Role, CRUD และ Input Validation จากนั้นลบข้อมูลทดสอบ | ตัดสินใจว่าจะเก็บสคริปต์เหล่านั้นเป็นชุดทดสอบถาวรหรือไม่ |
+| ปรับปรุงและ Refactor | เปลี่ยน UI ทั้งหมดจาก CSS ที่เขียนเองไปเป็น Tailwind utility, รวบรวม utility ที่ซ้ำกันเป็นสองโมดูล และลบ stylesheet ที่ไม่ใช้แล้ว | ยืนยันว่าผลลัพธ์ที่แสดงยังตรงกับดีไซน์ที่ตั้งใจ |
 
-## 9. Submission checklist
+### ผลการตรวจสอบที่ดำเนินการจริง
 
-See [`SUBMISSION_CHECKLIST.md`](./SUBMISSION_CHECKLIST.md) and [`AI_USAGE_REPORT.md`](./AI_USAGE_REPORT.md).
+- **สิทธิ์ตาม Role** — สมัครบัญชี Admin และ Technician ใหม่ ยืนยันว่า trigger ให้ role ตามที่เลือก และยืนยันว่า Technician สร้างเครื่องจักรไม่ได้ (403), แก้ field ที่ล็อกของ Alarm ไม่ได้ (400) และเลื่อนสิทธิ์ตัวเองไม่ได้
+- **CRUD** — ตรวจ 22 รายการ ครอบคลุมการสร้าง อ่าน แก้ไข archive restore และลบเครื่องจักร, การเปลี่ยนสถานะ Alarm ทั้ง 3 ค่า และการสร้าง แก้ไข และปิดงาน Maintenance
+- **Input Validation** — ตรวจ 13 รายการ ยืนยันว่าช่องว่าง, Machine ID ซ้ำรวมถึงแบบต่างตัวพิมพ์, รูปแบบผิด, ความยาวผิด และค่า enum ที่ไม่มีในระบบ ถูกปฏิเสธทั้งหมด
+- **การสแกนความลับ** — ค้นหา Service Role Key, secret key และรูปแบบ token ทั้ง repository รวมถึงไฟล์ bundle ที่จะส่งไปเบราว์เซอร์ ยืนยันว่าไม่มีไฟล์ `.env` ถูก track และโค้ดฝั่ง client อ่านเฉพาะตัวแปร `NEXT_PUBLIC_*`
+- **เครื่องมือ** — `npm run lint`, `npm run typecheck` และ `npm run build` ผ่านทั้งหมด และ GitHub Actions รายงานผลผ่าน
 
-- [x] GitHub repository URL
-- [ ] Vercel deployment URL
-- [x] Supabase migrations executed
-- [ ] Admin and Technician test accounts created
-- [ ] README updated with the real Vercel URL
-- [ ] Dashboard screenshot captured
-- [ ] Final AI usage report attached
+### ข้อจำกัดที่พบจริง
+
+- ชุดทดสอบอัตโนมัติที่กล่าวถึงข้างต้นเป็นสคริปต์ใช้ครั้งเดียวและไม่ได้ commit เป็นชุดทดสอบถาวร ดังนั้นยังไม่มีคำสั่ง `npm test`
+- ปัญหา role ตอนสมัครสมาชิกเคยถูกวินิจฉัยผิดว่าเกิดจากฟังก์ชันในฐานข้อมูลเป็นเวอร์ชันเก่า สาเหตุที่แท้จริงคือมี migration ที่ยังไม่ถูกรัน การวินิจฉัยที่ถูกต้องมาจากการอ่านนิยามฟังก์ชันจริงในฐานข้อมูลผ่าน Management API
+- การแปลง CSS ไปเป็น Tailwind ครั้งแรก commit ไปโดยหน้า login ยังมี layout ผิด ซึ่งพบได้จากการตรวจ HTML ที่เรนเดอร์ออกมา ไม่ได้พบจากการทดสอบอัตโนมัติ
+
+### คำสั่งนี้ใช้อ้างอิง
+
+นโยบายความปลอดภัย: ไม่มี Supabase Service Role Key หรือ secret ใดๆ อยู่ใน browser bundle, โค้ดต้นฉบับ, README หรือประวัติการ commit ของ repository เบราว์เซอร์ได้รับเฉพาะ URL ของโปรเจกต์ Supabase และ publishable anon key ซึ่งเป็นคีย์สาธารณะโดยการออกแบบและถูกป้องกันด้วย Row Level Security อีกชั้นหนึ่ง
+
+รายละเอียดเพิ่มเติมอยู่ใน [`AI_USAGE_REPORT.md`](./AI_USAGE_REPORT.md)
+
+## 9. รายการสิ่งที่ต้องส่ง
+
+ดูรายละเอียดเพิ่มเติมได้ที่ [`SUBMISSION_CHECKLIST.md`](./SUBMISSION_CHECKLIST.md)
+
+- [x] URL ของ GitHub repository
+- [ ] URL ของระบบที่ deploy บน Vercel
+- [x] สคีมาฐานข้อมูลบน Supabase (migration ครบ 5 ไฟล์)
+- [x] มีบัญชีทดสอบทั้ง Admin และ Technician
+- [ ] อัปเดต README ด้วย URL จริงของ Vercel
+- [x] จับภาพหน้าจอระบบแล้ว
+- [x] จัดทำรายงานสรุปการใช้ AI ในการพัฒนาแล้ว
