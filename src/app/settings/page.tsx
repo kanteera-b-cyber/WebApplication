@@ -52,6 +52,11 @@ export default function SettingsPage() {
   const [connection, setConnection] = useState<"checking" | "ok" | "failed">("checking");
 
   useEffect(() => {
+    // Nothing to look up until the session resolves. Without this guard the
+    // effect runs on first paint with no user, builds the filter "id=eq." with
+    // an empty value, and PostgREST rejects it with a 400.
+    const userId = user?.id;
+    if (!userId) return;
     let active = true;
     // Supabase query builders are thenable rather than real promises, so the
     // result is awaited inside an async function to get normal error handling.
@@ -60,7 +65,7 @@ export default function SettingsPage() {
         const result = await createClient()
           .from("profiles")
           .select("display_name")
-          .eq("id", user?.id ?? "")
+          .eq("id", userId)
           .maybeSingle();
         if (!active) return;
         if (result.error) { setNameError(describeWriteError(result.error, "machine")); return; }
@@ -109,9 +114,16 @@ export default function SettingsPage() {
       return;
     }
 
+    // user.id is guaranteed by the disabled submit button, and this guard stops a
+    // stale click from building the filter "id=eq." with nothing after it.
+    if (!user?.id) {
+      setNameError("ยังไม่ทราบว่าคุณคือใคร ลองโหลดหน้าใหม่ / Your session has not loaded yet. Reload the page.");
+      return;
+    }
+
     setSavingName(true);
     try {
-      const result = await createClient().from("profiles").update({ display_name: trimmed }).eq("id", user?.id ?? "").select("display_name").single();
+      const result = await createClient().from("profiles").update({ display_name: trimmed }).eq("id", user.id).select("display_name").single();
       if (result.error) throw result.error;
       setName(result.data.display_name);
       setNameSaved(true);
