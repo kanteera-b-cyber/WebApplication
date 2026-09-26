@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { Pencil, Plus, Search, ShieldAlert, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
-import { useCurrentUser } from "@/lib/auth/use-current-user";
+import { useCurrentUser, canWrite } from "@/lib/auth/use-current-user";
 import { isOneOf, optionalText, requiredDate, requiredText, toDateTimeLocal } from "@/lib/operations/validation";
 import { ALARM_STATUSES, type Alarm, type AlarmStatus } from "@/lib/operations/types";
 import { ModuleHeader } from "@/features/operations/module-header";
@@ -36,6 +36,7 @@ import {
   moduleError,
   rowDescription,
   rowStrong,
+  permissionNote,
   searchBox,
   searchInput,
   select,
@@ -73,6 +74,7 @@ export function AlarmConsole() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const canManageDetails = role === "admin";
+  const canCreate = canWrite(role);
   const canDelete = role === "admin";
 
   useEffect(() => {
@@ -204,7 +206,7 @@ export function AlarmConsole() {
   return (
     <main className={shell}>
       <ModuleHeader role={role} />
-      <div className={heading}><div className={headingCopy}><p className={`${eyebrow} ${eyebrowAccent}`}>WORKSPACE / ALARMS</p><h1 className={headingTitle}>Alarm records</h1><p className={headingLead}>Create, investigate and close machine alarms with a complete audit trail.</p></div><button className={`${button} ${buttonPrimary}`} onClick={openCreate} disabled={machines.length === 0}><Plus size={15} />Create alarm</button></div>
+      <div className={heading}><div className={headingCopy}><p className={`${eyebrow} ${eyebrowAccent}`}>WORKSPACE / ALARMS</p><h1 className={headingTitle}>Alarm records</h1><p className={headingLead}>Create, investigate and close machine alarms with a complete audit trail.</p></div>{canCreate ? <button className={`${button} ${buttonPrimary}`} onClick={openCreate} disabled={machines.length === 0}><Plus size={15} />Create alarm</button> : <span className={permissionNote}><ShieldAlert size={15} />Creating an alarm requires the Technician or Admin role</span>}</div>
       <div className={toolbar}><div className={searchBox}><Search size={16} /><input className={searchInput} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search machine, code or description..." aria-label="Search alarms" /></div><select className={`${select} min-w-[150px] max-[760px]:h-[38px]`} value={filter} onChange={(event) => setFilter(event.target.value)} aria-label="Filter alarm status"><option value="all">All statuses</option><option value="open">Open</option><option value="in_progress">In progress</option><option value="closed">Closed</option></select></div>
       {error && <div className={moduleError} role="alert">{error}</div>}
       {loading ? <div className={moduleEmpty}>Loading alarms...</div> : <div className={tableCard}><div className={`${tableHead} ${alarmColumns}`}><span>Alarm</span><span>Machine</span><span>Occurred</span><span>Status / actions</span></div>{filtered.map((alarm) => <div className={`${tableRow} ${alarmColumns}`} key={alarm.id}><div><strong className={rowStrong}>{alarm.alarm_code}</strong><span className={rowDescription}>{alarm.description}</span>{(alarm.cause || alarm.action_taken) && <span className={rowDescription}>Cause: {alarm.cause || "—"} · Action: {alarm.action_taken || "—"}</span>}</div><span>{machineName(alarm.machine_id)}</span><span>{formatDate(alarm.occurred_at)}</span><span className="flex items-center gap-1"><select className={select} value={alarm.status} onChange={(event) => void changeStatus(alarm, event.target.value)} aria-label={`Status for ${alarm.alarm_code}`}><option value="open">Open</option><option value="in_progress">In progress</option><option value="closed">Closed</option></select><button className={iconButton} onClick={() => openEdit(alarm)} aria-label={`Edit ${alarm.alarm_code}`}><Pencil size={15} /></button>{canDelete && <button className={`${iconButton} hover:!text-danger`} onClick={() => void remove(alarm)} aria-label={`Delete ${alarm.alarm_code}`}><Trash2 size={15} /></button>}</span></div>)}{filtered.length === 0 && <div className={moduleEmpty}>No alarms match your search.</div>}</div>}

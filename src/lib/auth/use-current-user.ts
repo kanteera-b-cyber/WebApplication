@@ -5,6 +5,15 @@ import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/browser";
 import type { AppRole } from "@/lib/operations/types";
 
+/**
+ * Roles that may change data. A `viewer` is read-only, so every write control
+ * must be hidden for that role. Row Level Security is still the real boundary;
+ * this only keeps the interface honest.
+ */
+export function canWrite(role: AppRole | null | undefined): boolean {
+  return role === "admin" || role === "technician";
+}
+
 type CurrentUserState = {
   user: User | null;
   role: AppRole | null;

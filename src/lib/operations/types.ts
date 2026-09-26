@@ -4,10 +4,22 @@ export type MachineStatus = (typeof MACHINE_STATUSES)[number];
 export const ALARM_STATUSES = ["open", "in_progress", "closed"] as const;
 export type AlarmStatus = (typeof ALARM_STATUSES)[number];
 
-export const MAINTENANCE_STATUSES = ["in_progress", "completed"] as const;
+export const MAINTENANCE_STATUSES = ["in_progress", "waiting_part", "completed"] as const;
 export type MaintenanceStatus = (typeof MAINTENANCE_STATUSES)[number];
 
-export type AppRole = "admin" | "technician";
+export const MAINTENANCE_STATUS_LABELS: Record<string, string> = {
+  in_progress: "In progress",
+  waiting_part: "Waiting part",
+  completed: "Completed",
+};
+
+/** `viewer` is a read-only role added for the bonus requirements. */
+export const APP_ROLES = ["admin", "technician", "viewer"] as const;
+export type AppRole = (typeof APP_ROLES)[number];
+
+/** Roles that may change data. A viewer can only read. */
+export const WRITE_ROLES: readonly AppRole[] = ["admin", "technician"];
+
 
 export type Machine = {
   id: string;

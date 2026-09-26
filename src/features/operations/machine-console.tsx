@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Archive, LoaderCircle, Pencil, Plus, RotateCcw, Search, ShieldAlert, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
-import { useCurrentUser } from "@/lib/auth/use-current-user";
+import { useCurrentUser, canWrite } from "@/lib/auth/use-current-user";
 import { isOneOf, machineId, requiredText } from "@/lib/operations/validation";
 import { MACHINE_STATUSES, type Machine, type MachineStatus } from "@/lib/operations/types";
 import { ModuleHeader } from "@/features/operations/module-header";
@@ -95,7 +95,7 @@ export function MachineConsole() {
   const [saving, setSaving] = useState(false);
   const [archivingId, setArchivingId] = useState<string | null>(null);
   const [scope, setScope] = useState<"active" | "archived" | "all">("active");
-  const canManage = role === "admin";
+  const canManage = canWrite(role);
 
   useEffect(() => {
     let active = true;

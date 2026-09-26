@@ -1,6 +1,14 @@
 @import "tailwindcss";
 
 /*
+ * Dark mode is driven by a `dark` class on <html> so the user can toggle it, and
+ * the `light` variant is declared so `dark:` utilities know the light theme is
+ * the default. The choice is stored in localStorage and applied by an inline
+ * script in layout.tsx before first paint, which avoids a flash of light theme.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
  * Design tokens. Declaring them with `@theme` (instead of the old hand-written
  * `:root` custom properties) makes them available as real Tailwind utilities,
  * e.g. `bg-canvas`, `text-ink`, `border-line`, `bg-brand-soft`.
@@ -27,3 +35,28 @@
 
   --font-sans: "Trebuchet MS", "Segoe UI", sans-serif;
 }
+
+/*
+ * Dark theme overrides. Only the surface tokens change, so every utility built
+ * on top of them (bg-canvas, text-ink, border-line, and the soft status
+ * colours) flips automatically without touching a single component.
+ */
+.dark {
+  --color-ink: #e7edf5;
+  --color-muted: #93a1b3;
+  --color-line: #24354a;
+  --color-canvas: #0a1626;
+  --color-steel: #64748b;
+
+  --color-brand: #5b95ff;
+  --color-brand-soft: #16294a;
+  --color-success: #4ecb9a;
+  --color-success-soft: #10302a;
+  --color-warn: #eaa765;
+  --color-warn-soft: #33270f;
+  --color-danger: #f27b7b;
+  --color-danger-soft: #351a1e;
+  --color-grape: #a892e0;
+  --color-grape-soft: #241d3d;
+}
+

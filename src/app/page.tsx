@@ -20,11 +20,14 @@ import {
   UsersRound,
   Wrench,
   X,
+  History as HistoryIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/browser";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { formatRelativeTime } from "@/lib/operations/validation";
 import { eyebrow, eyebrowAccent, statusTone } from "@/features/operations/module-styles";
+import { AlarmChart } from "@/features/operations/alarm-chart";
+import { NotificationBell } from "@/features/operations/notification-bell";
 import {
   alarmCopy,
   alarmCopyHead,
@@ -288,7 +291,14 @@ export function DashboardView() {
             <button key={label} className={`${navItem} ${activeNav === label ? navItemActive : ""}`} onClick={() => navigate(label)}><Icon size={17} /><span>{label}</span>{label === "Alarms" && <span className={navCount}>{summary.activeAlarms}</span>}</button>
           ))}
           <p className={`${navLabel} ${navLabelSpaced}`}>CONTROL</p>
-          {[{ label: "Reports", Icon: ClipboardCheck }, { label: "Users", Icon: UsersRound }, { label: "Settings", Icon: Settings2 }].filter(({ label }) => label !== "Users" || role === "admin").map(({ label, Icon }) => (
+          {[
+            { label: "History", Icon: HistoryIcon },
+            { label: "Audit", Icon: ClipboardCheck },
+            { label: "Requests", Icon: Settings2 },
+            { label: "Reports", Icon: ClipboardCheck },
+            { label: "Users", Icon: UsersRound },
+            { label: "Settings", Icon: Settings2 },
+          ].filter(({ label }) => label !== "Users" || role === "admin").map(({ label, Icon }) => (
             <button key={label} className={`${navItem} ${activeNav === label ? navItemActive : ""}`} onClick={() => navigate(label)}><Icon size={17} /><span>{label}</span></button>
           ))}
         </nav>
@@ -303,7 +313,7 @@ export function DashboardView() {
         <header className={topbar}>
           <button className={`${iconButton} max-[680px]:grid`} onClick={() => setMenuOpen(true)} aria-label="เปิดเมนู"><Menu size={20} /></button>
           <div className={breadcrumb}><span>Workspace</span><span>/</span><strong>{activeNav}</strong></div>
-          <div className={topbarActions}><span className={liveIndicator}><span />{dataState === "ready" ? "Live data" : "Data unavailable"}</span><button className={`${iconButton} ${notificationButton}`} aria-label="การแจ้งเตือน"><Bell size={18} /><i /></button><div className={topAvatar}>{initials}</div></div>
+          <div className={topbarActions}><span className={liveIndicator}><span />{dataState === "ready" ? "Live data" : "Data unavailable"}</span><NotificationBell alarms={alarms} machineName={machineName} /><button className={`${iconButton} ${notificationButton}`} aria-label="การแจ้งเตือน"><Bell size={18} /><i /></button><div className={topAvatar}>{initials}</div></div>
         </header>
 
         <div className={pageContent}>
@@ -326,6 +336,7 @@ export function DashboardView() {
               {showFilters && <div className={filterStrip}><span>Showing</span><strong>{range === "24h" ? "Last 24 hours" : "Last 7 days"}</strong><button className={filterStripClear} onClick={() => { setQuery(""); setRange("24h"); }}>Clear</button></div>}
               <div className={alarmList}>{filteredAlarms.slice(0, 6).map((alarm) => <AlarmRow key={alarm.id} alarm={alarm} machine={machineName(alarm.machine_id)} />)}</div>
               {filteredAlarms.length === 0 && <div className={emptyState}>No alarms match your search and time range.</div>}
+              <AlarmChart alarms={alarms} days={range === "24h" ? 1 : 7} />
             </section>
 
             <section className={`${panel} max-[1100px]:min-h-0`}>

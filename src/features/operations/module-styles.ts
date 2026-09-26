@@ -29,6 +29,7 @@ export const rolePill = "rounded-full px-2 py-[5px] text-[9px] font-extrabold up
 export const rolePillTone: Record<string, string> = {
   admin: "bg-grape-soft text-[#7258bd]",
   technician: "bg-success-soft text-[#2d7a5a]",
+  viewer: "bg-brand-soft text-[#35659f]",
 };
 
 export const button = "flex items-center gap-[7px] rounded-[7px] border border-line px-3 py-[9px] text-[11px] font-bold";
@@ -84,6 +85,7 @@ export const statusTone: Record<string, string> = {
   critical: "bg-danger-soft text-danger",
   maintenance: "bg-warn-soft text-[#ba782c]",
   in_progress: "bg-warn-soft text-[#ba782c]",
+  waiting_part: "bg-grape-soft text-[#6b53a8]",
   warning: "bg-warn-soft text-[#ba782c]",
   stop: "bg-[#f0f2f5] text-muted",
   resolved: "bg-success-soft text-success",

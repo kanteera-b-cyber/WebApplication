@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
 import type { AppRole } from "@/lib/operations/types";
+import { ThemeToggle } from "./theme-toggle";
 import {
   brandCaption,
   brandMark,
@@ -46,8 +47,11 @@ export function ModuleHeader({ role }: { role?: AppRole | null }) {
         <Link className={navLink} href="/machines">Machines</Link>
         <Link className={navLink} href="/alarms">Alarms</Link>
         <Link className={navLink} href="/maintenance">Maintenance</Link>
+        <Link className={`${navLink} max-[760px]:hidden`} href="/audit">Audit</Link>
+        <Link className={`${navLink} max-[760px]:hidden`} href="/requests">Requests</Link>
       </nav>
       <div className={topbarActions}>
+        <ThemeToggle />
         {role && <span className={`${rolePill} ${rolePillTone[role] ?? ""}`}>{role}</span>}
         <button className={`${button} ${buttonSecondary} ${buttonSmall}`} type="button" onClick={() => void signOut()} disabled={signingOut}>
           <LogOut size={14} />{signingOut ? "Signing out..." : "Sign out"}

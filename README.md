@@ -157,6 +157,8 @@ Web application สำหรับทีมงาน Automation ในโรง�
 3. `supabase/migrations/003_signup_role.sql`
 4. `supabase/migrations/004_machine_soft_delete.sql`
 5. `supabase/migrations/005_signup_role_enforcement.sql`
+6. `supabase/migrations/006_bonus_features.sql`
+7. `supabase/migrations/007_seed_viewer_account.sql`
 
 ข้อมูลตัวอย่างสำหรับทดลองใช้งานเพิ่มเติมอยู่ใน `supabase/seed.sql`
 
@@ -308,7 +310,35 @@ Workflow ที่ `.github/workflows/ci.yml` ทำงานอัตโนม�
 
 > เปิด **Settings → Deployment Protection** แล้วปิด **Vercel Authentication** ไว้ เพื่อให้ผู้ตรวจเปิด URL นี้ได้โดยไม่ต้องล็อกอิน
 
-### 7.1 การจัดการสไตล์ด้วย Tailwind CSS
+### 7.1 ฟีเจอร์เพิ่มเติม (Bonus)
+
+งานส่วนนี้เป็นสิ่งที่เพิ่ม**นอกเหนือจากตารางคะแนนหลัก 100 คะแนน** ตามหัวข้อ 7 ของโจทย์
+
+| ฟีเจอร์ | สถานะ | ที่อยู่ |
+| --- | --- | --- |
+| เพิ่ม Role `Viewer` | ทำแล้ว | หน้า Login (เลือกได้ตอนสมัคร) · RLS ให้อ่านอย่างเดียว |
+| เพิ่มสถานะ `Waiting Part` | ทำแล้ว | งาน Maintenance · check constraint กันปิดงานที่ยังรออะไหล่ |
+| เพิ่มกราฟประเอ็ด Alarm | ทำแล้ว | หน้า Dashboard · แท่งสีแดง=ยัง active สีเขียว=ปิดแล้ว |
+| เพิ่มหน้า Machine History | ทำแล้ว | เมนู **History** · อ่านจาก audit log |
+| เพิ่ม Audit Log | ทำแล้ว | เมนู **Audit** · trigger บันทึกอัตโนมัติทุก insert/update/delete |
+| เพิ่ม Notification | ทำแล้ว | กระดิ่งบน Topbar · รายการ alarm ที่ยัง active + desktop notification |
+| Responsive UI | ทำแล้ว | ทุกหน้า รองรับมือถือ |
+| Export CSV / Excel | ทำแล้ว | หน้า Reports |
+| Dark Mode | ทำแล้ว | ปุ่มพระจันทร์บน Topbar · จำค่าไว้ใน localStorage |
+| เพิ่ม Filter ตามช่วงวันที่ | ทำแล้ว | Dashboard เลือก 24 ชม. / 7 วัน |
+| Change Request ต้องผู้ดูแลอนุมัติ | ทำแล้ว | เมนู **Requests** · ทุกคนเสนอได้, เฉพาะ Admin อนุมัติ/ปฏิเสธ |
+| เพิ่มข้อมูล Technician | ทำแล้ว | ค้นหาและกรองตามช่างในหน้า Maintenance, แสดงชื่อผู้รับผิดชอบใน Audit และ Requests |
+| เพิ่ม Validation เพิ่มเติม | ทำแล้ว | `waiting_part` ต้องไม่มี `completed_at`, ความยาว title/description ของ change request |
+
+**Dark Mode** ทำงานโดยสลับคลาส `dark` บน `<html>` และปรับเฉพาะตัวแปรสีใน `globals.css` ทุก utility ที่สร้างบน token เหล่านั้นจึงเปลี่ยนตามอัตโนมัติโดยไม่ต้องแก้ component ใดๆ สคริปต์เล็กใน `layout.tsx` จะกำหนดธีมก่อนหน้าจอแรกวาด เพื่อไม่ให้เห็นธีมสว่างแวบก่อนแล้วกระพริบเป็นธีมมืด
+
+**Audit Log** เขียนโดย trigger `public.write_audit_log()` บันทึกผู้กระทำ (`actor_role`) และค่าก่อน/หลัง (`changes`) โดยตาราง `audit_log` **ไม่มี INSERT policy ให้ใคร** แม้แต่ client จึงสร้างรายการปลอมไม่ได้
+
+**Viewer** ใช้ฟังก์ชัน `public.can_write()` ใน RLS เพราะ `is_admin()` อย่างเดียวแสดงความตั้งใจไม่ได้ ต้องกันกรณี role อื่นที่ไม่ใช่ admin หลุดเข้า policy ของ technician
+
+ผลการตรวจสอบฟีเจอร์ bonus ด้วยการยิงคำขอจริง **ผ่าน 20/20 รายการ** ครอบคลุมการอ่านของ viewer ที่ถูกต้องและการเขียนที่ถูกปฏิเสธทั้งหมด, สถานะ waiting_part, audit log ที่บันทึกอัตโนมัติและป้องกันการปลอมแปลง, และ change request ที่เสนอได้ทุกคนแต่อนุมัติได้เฉพาะ admin
+
+### 7.2 การจัดการสไตล์ด้วย Tailwind CSS
 
 หน้าตาของระบบสร้างด้วย Tailwind CSS v4 ทั้งหมด โดยกำหนด design token ครั้งเดียวด้วย `@theme` ในไฟล์ `src/app/globals.css` (เช่น `--color-brand`, `--color-ink`, `--color-line`) แล้วเรียกใช้เป็น utility ปกติ เช่น `bg-canvas`, `text-ink` และ `border-line`
 

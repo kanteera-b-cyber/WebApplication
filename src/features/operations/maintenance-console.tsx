@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { Pencil, Plus, Search, ShieldAlert, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
-import { useCurrentUser } from "@/lib/auth/use-current-user";
+import { useCurrentUser, canWrite } from "@/lib/auth/use-current-user";
 import { isOneOf, requiredDate, requiredText, toDateTimeLocal } from "@/lib/operations/validation";
 import { MAINTENANCE_STATUSES, type MaintenanceRecord, type MaintenanceStatus } from "@/lib/operations/types";
 import { ModuleHeader } from "@/features/operations/module-header";
@@ -34,6 +34,7 @@ import {
   moduleError,
   rowStrong,
   rowSub,
+  permissionNote,
   searchBox,
   searchInput,
   select,
@@ -68,6 +69,7 @@ export function MaintenanceConsole() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const canCreate = canWrite(role);
   const canDelete = role === "admin";
 
   useEffect(() => {
@@ -105,7 +107,7 @@ export function MaintenanceConsole() {
 
   const machineName = (id: string) => machines.find((machine) => machine.id === id)?.machine_id ?? "Unknown machine";
   const technicianName = (id: string) => profiles.find((profile) => profile.id === id)?.display_name ?? "Unknown technician";
-  const canEditRecord = (record: MaintenanceRecord) => role === "admin" || (role === "technician" && record.technician_id === user?.id);
+  const canEditRecord = (record: MaintenanceRecord) => canWrite(role) && (role === "admin" || record.technician_id === user?.id);
   const filtered = records.filter((record) => {
     const text = `${record.problem} ${record.action_taken} ${machineName(record.machine_id)} ${technicianName(record.technician_id)} ${record.technician_id}`.toLowerCase();
     return text.includes(query.toLowerCase()) && (filter === "all" || record.status === filter);
@@ -116,7 +118,6 @@ export function MaintenanceConsole() {
     setEditing(null);
     setOpen(true);
   }
-
   function openEdit(record: MaintenanceRecord) {
     if (!canEditRecord(record)) {
       setError("Technicians can edit only their assigned maintenance records.");
@@ -205,7 +206,7 @@ export function MaintenanceConsole() {
   return (
     <main className={shell}>
       <ModuleHeader role={role} />
-      <div className={heading}><div className={headingCopy}><p className={`${eyebrow} ${eyebrowAccent}`}>WORKSPACE / MAINTENANCE</p><h1 className={headingTitle}>Maintenance records</h1><p className={headingLead}>Capture problems, actions and technician work history.</p></div><button className={`${button} ${buttonPrimary}`} onClick={openCreate} disabled={machines.length === 0 || profiles.length === 0}><Plus size={15} />Log maintenance</button></div>
+      <div className={heading}><div className={headingCopy}><p className={`${eyebrow} ${eyebrowAccent}`}>WORKSPACE / MAINTENANCE</p><h1 className={headingTitle}>Maintenance records</h1><p className={headingLead}>Capture problems, actions and technician work history.</p></div>{canCreate ? <button className={`${button} ${buttonPrimary}`} onClick={openCreate} disabled={machines.length === 0 || profiles.length === 0}><Plus size={15} />Log maintenance</button> : <span className={permissionNote}><ShieldAlert size={15} />Logging maintenance requires the Technician or Admin role</span>}</div>
       <div className={toolbar}><div className={searchBox}><Search size={16} /><input className={searchInput} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search machine, technician or work description..." aria-label="Search maintenance" /></div><select className={`${select} min-w-[150px] max-[760px]:h-[38px]`} value={filter} onChange={(event) => setFilter(event.target.value)} aria-label="Filter maintenance status"><option value="all">All statuses</option><option value="in_progress">In progress</option><option value="completed">Completed</option></select></div>
       {error && <div className={moduleError} role="alert">{error}</div>}
       {loading ? <div className={moduleEmpty}>Loading maintenance records...</div> : <div className={tableCard}><div className={tableHead}><span>Machine</span><span>Problem</span><span>Action taken</span><span>Status / actions</span></div>{filtered.map((record) => <div className={tableRow} key={record.id}><strong className={rowStrong}>{machineName(record.machine_id)}<small className={rowSub}>{technicianName(record.technician_id)}</small></strong><span>{record.problem}</span><span>{record.action_taken}</span><span className="flex items-center gap-1"><select className={select} value={record.status} disabled={!canEditRecord(record)} onChange={(event) => void changeStatus(record, event.target.value)} aria-label={`Status for ${machineName(record.machine_id)}`}><option value="in_progress">In progress</option><option value="completed">Completed</option></select>{canEditRecord(record) && <button className={iconButton} onClick={() => openEdit(record)} aria-label="Edit maintenance record"><Pencil size={15} /></button>}{canDelete && <button className={`${iconButton} hover:!text-danger`} onClick={() => void remove(record)} aria-label="Delete maintenance record"><Trash2 size={15} /></button>}</span></div>)}{filtered.length === 0 && <div className={moduleEmpty}>No maintenance records match your search.</div>}</div>}

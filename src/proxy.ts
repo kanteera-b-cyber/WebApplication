@@ -15,5 +15,8 @@ export const config = {
     "/users/:path*",
     "/reports/:path*",
     "/settings/:path*",
+    "/audit/:path*",
+    "/requests/:path*",
+    "/history/:path*",
   ],
 };
