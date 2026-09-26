@@ -93,6 +93,30 @@ Every data requirement in sections 3.2 to 3.4, mapped to the code that implement
 
 **On Machine Master Delete.** Delete is available to Admin on every row. A machine that is still referenced by an alarm or a maintenance record cannot be removed, because the database rejects it with a foreign-key violation; the console then tells the admin to use **Archive** instead. Archiving keeps the machine out of the active list while preserving every historical alarm and maintenance record, and an archived machine is forced to `Stop` so it never inflates the dashboard counters. This is a deliberate integrity choice rather than a missing feature, and both paths are reachable from the same row.
 
+#### Search, filter, dashboard, validation and database coverage
+
+| Requirement | Implementation | Verified |
+| --- | --- | --- |
+| 3.5 Search and filter, at least 2 conditions | Machines: text + status + archived scope. Alarms: text + status. Maintenance: text + status. Dashboard: text + time range | 3 conditions on Machines, 2 elsewhere |
+| 3.5 Searchable targets: Machine, Status, Alarm Code, Technician, Date | `machine_id` and status on Machines, `alarm_code` on Alarms, technician name on Maintenance, 24h/7d range on Dashboard | all five targets reachable |
+| 3.6 Total machine count | Metric card "Total machines" plus donut centre | live from `/api/dashboard` |
+| 3.6 Running, Stop, Alarm, Maintenance counts | Donut chart with a legend that prints each count | all four counted server-side |
+| 3.6 Alarm and Maintenance counts | Metric cards "Active alarms" and "Maintenance records" | live from `/api/dashboard` |
+| 3.6 Chart or summary data | Donut chart, legend, running-rate metric and a maintenance completion bar | rendered from live data |
+| 3.7 Required fields cannot be blank | `not null` plus `length(btrim(...)) > 0` check constraints on every text column | 13/13 validation probes pass |
+| 3.7 Machine ID cannot repeat | `machines_machine_id_lower_unique` index on `lower(machine_id)` | duplicate and case-variant duplicate both rejected |
+| 3.7 Correct format, no unsuitable values | `machines_machine_id_format` regex, `app_role` / `machine_status` / `alarm_status` enums | bad format, wrong length and unknown enum values rejected |
+| 3.7 Warning message on invalid input | `describeWriteError` maps each Postgres error code to an actionable sentence, rendered in `role="alert"` | 23505, 23514, 23503, 23514, 42501 all mapped |
+| 3.8 Supabase as the database | Supabase Postgres with the Auth, Data and RLS integrations | in use |
+| 3.8 Tables users/profiles, machines, alarms, maintenance_records | `profiles`, `machines`, `alarms`, `maintenance_records` | all four present |
+| 3.8 Sensible relationships | `alarms.machine_id` and `maintenance_records.machine_id` to `machines.id`; `technician_id`, `created_by`, `closed_by` to `profiles.id` | foreign keys enforced with `on delete restrict` |
+| 3.8 Secrets in Environment Variables, never committed | `.env.local` holds the values and `.gitignore` excludes `.env*` | no `.env` file is tracked |
+| 3.8 No Service Role or Secret key in client code | The client bundle reads only `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` | repository-wide scan is clean |
+| 3.9 Source code stored on GitHub | `origin` points at the project repository | push the local history |
+| 3.9 Commit history during development, not one upload at the end | Nine incremental commits covering schema, UI, Tailwind migration, login error handling and the role fix | `git log --oneline` |
+| 3.9 README describing the project | This document | covers setup, database, roles, deployment and AI disclosure |
+
+
 ### Search, filter and dashboard
 
 - Text search and status filters are available on Machines, Alarms and Maintenance.
