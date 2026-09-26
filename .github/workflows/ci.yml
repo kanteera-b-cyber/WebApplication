@@ -1,19 +1,68 @@
 name: CI
 
+# Assignment requirement 3.10: at least one Continuous Integration workflow that
+# runs automatically on every push and reports a clear Passed/Failed result for
+#   Dependencies -> Build Project -> Test / Lint
+# Each step is named so the Actions tab shows exactly which stage failed.
+
 on:
   push:
     branches: [main, master]
   pull_request:
+    branches: [main, master]
+
+# Cancel an in-flight run when the same branch is pushed again, so the latest
+# commit is always the one being verified.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   verify:
+    name: Install, Lint, Typecheck and Build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Next.js 16 requires Node >= 20.9.0
+          node-version: 20.19.0
           cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run build
+
+      - name: 1. Install dependencies
+        id: deps
+        run: npm ci
+
+      - name: 2. Lint
+        id: lint
+        run: npm run lint
+
+      - name: 3. Typecheck
+        id: types
+        run: npm run typecheck
+
+      - name: 4. Build
+        id: build
+        run: npm run build
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### CI result"
+            echo ""
+            echo "| Stage | Result |"
+            echo "| --- | --- |"
+            echo "| Install dependencies | ${{ steps.deps.outcome }} |"
+            echo "| Lint | ${{ steps.lint.outcome }} |"
+            echo "| Typecheck | ${{ steps.types.outcome }} |"
+            echo "| Build | ${{ steps.build.outcome }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

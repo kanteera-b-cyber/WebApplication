@@ -269,10 +269,20 @@ Other checks:
 
 ```bash
 npm run lint
+npm run typecheck
 npm run build
 ```
 
-The GitHub Actions workflow in `.github/workflows/ci.yml` runs the same checks on pushes to `main`/`master` and pull requests.
+The GitHub Actions workflow in `.github/workflows/ci.yml` runs the same checks automatically on every push to `main` and on every pull request. It performs four named stages so the Actions tab shows exactly which one failed:
+
+| Stage | Command |
+| --- | --- |
+| 1. Install dependencies | `npm ci` |
+| 2. Lint | `npm run lint` |
+| 3. Typecheck | `npm run typecheck` |
+| 4. Build | `npm run build` |
+
+The run finishes with a `CI result` table on the job summary page and the workflow itself reports Passed or Failed. A `concurrency` group cancels a superseded run when the same branch is pushed again, so the badge always reflects the newest commit.
 
 Manual acceptance checks:
 
@@ -286,11 +296,23 @@ Manual acceptance checks:
 
 ## 7. Deployment
 
-1. Push this project to a GitHub repository.
-2. Import the repository into Vercel.
-3. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel Project Settings → Environment Variables.
-4. Run all four Supabase migrations before testing the deployment.
-5. Verify `/login`, `/dashboard`, `/machines`, `/alarms` and `/maintenance` on the Vercel URL.
+1. Push this project to GitHub:
+   ```bash
+   git push -u origin main
+   ```
+2. Sign in at [vercel.com](https://vercel.com) and choose **Add New → Project**, then import `kanteera-b-cyber/WebApplication`. Vercel detects Next.js 16 and needs no build settings.
+3. Before the first deploy, add the environment variables. Vercel asks for them during import, or add them later under **Project → Settings → Environment Variables**:
+
+   | Name | Value |
+   | --- | --- |
+   | `NEXT_PUBLIC_SUPABASE_URL` | `https://<project-ref>.supabase.co` |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | the `sb_publishable_...` key from Supabase → Project Settings → API |
+
+   Enable them for **Production**, **Preview** and **Development**. The Service Role Key is never needed and must never be added.
+4. Run all five Supabase migrations (or `supabase/setup.sql`) against the Supabase project before testing.
+5. Deploy, then verify `/login`, `/dashboard`, `/machines`, `/alarms` and `/maintenance` on the Vercel URL.
+
+Node.js 20.9 or newer is required; `package.json` declares `engines.node` so Vercel selects a compatible runtime.
 
 **GitHub repository:** https://github.com/kanteera-b-cyber/WebApplication
 
