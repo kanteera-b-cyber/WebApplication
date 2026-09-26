@@ -32,6 +32,27 @@ Web application for factory automation teams to manage machine master data, alar
 - Technician: read machines and dashboard, create alarms, update alarm workflow fields, and manage assigned maintenance records.
 - The Next.js `proxy.ts` protects application routes, while PostgreSQL RLS remains the final authorization boundary.
 
+#### Role capability matrix
+
+Every Technician capability required by the assignment, and the layer that enforces it:
+
+| Capability | UI | RLS policy | Extra database guard |
+| --- | --- | --- | --- |
+| View machine data | `machine-console.tsx` renders read-only, shows "View only" | `authenticated users read machines` | — |
+| Cannot add / edit / archive machines | `canManage = role === "admin"` hides every control | `admins manage machines` | — |
+| Create maintenance | Technician is forced to own the record | `admins or technicians create maintenance` | `set_record_actor()` sets `created_by`/`completed_at` |
+| Edit maintenance | `canEditRecord()` allows own records | `admins or assigned technicians update maintenance` | `set_record_actor()` forces `technician_id = auth.uid()` |
+| Change alarm status | `canManageDetails` limits the form to status / cause / action | `technicians update alarm workflow` | `set_record_actor()` raises on any other field change |
+| View dashboard | No role gate | `authenticated users read alarms` / `authenticated users read maintenance` | — |
+| Cannot escalate to Admin | `/users` is Admin-only and redirects otherwise | `admins manage profiles` | — |
+
+Two deliberate decisions worth noting for review:
+
+- The assignment lists *change Alarm status* for Technician and *manage Alarm* for Admin. This build additionally lets a Technician **create** an alarm, because in a real plant the technician on the floor is normally the one who records it. The permission is `authenticated users create alarms`, and `created_by` is always forced to the signed-in user. Removing it is a one-line policy change if stricter separation is required.
+- A Technician may only edit maintenance records assigned to them, enforced by the `admins or assigned technicians update maintenance` policy. A Technician can never edit another technician's work.
+
+Note on RLS feedback: when a write is rejected by row-level security, PostgREST filters the row out and returns `204 No Content` rather than an error, because zero rows matched. The consoles detect this and raise a permission error instead of reporting a false success (see `changeStatus` in `alarm-console.tsx` and `destroy` in `machine-console.tsx`).
+
 ### Machine Master
 
 Fields: `Machine ID`, `Machine Name`, `Machine Type`, `Location`, `Status`.
