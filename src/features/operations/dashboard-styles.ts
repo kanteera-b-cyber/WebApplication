@@ -134,6 +134,9 @@ export const filterStrip = "mb-2.5 flex items-center gap-2 rounded-[6px] bg-sunk
 
 export const filterStripClear = "ml-auto border-0 bg-transparent px-1.5 py-1 text-[9px] text-brand";
 
+/** The running tally inside the filter strip, so the scope is visible. */
+export const filterStripCount = "text-muted";
+
 export const alarmList = "border-t border-line";
 
 export const alarmRow = "flex min-h-[57px] items-center gap-[11px] border-b border-bg-sunken";

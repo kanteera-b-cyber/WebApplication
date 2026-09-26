@@ -29,6 +29,7 @@ import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { formatRelativeTime } from "@/lib/operations/validation";
 import { eyebrow, eyebrowAccent, statusTone } from "@/features/operations/module-styles";
 import { plural } from "@/lib/operations/format";
+import { activeMachines, machineNameLookup } from "@/lib/operations/machines";
 import { AlarmChart } from "@/features/operations/alarm-chart";
 import { NotificationBell } from "@/features/operations/notification-bell";
 import { ThemeToggle } from "@/features/operations/theme-toggle";
@@ -62,6 +63,7 @@ import {
   filterButtonSelected,
   filterStrip,
   filterStripClear,
+  filterStripCount,
   healthBar,
   healthBarFill,
   healthBarFillLow,
@@ -138,7 +140,7 @@ import {
   userCopyMeta,
   userCopyName,
 } from "@/features/operations/dashboard-styles";
-import type { Alarm, Machine } from "@/lib/operations/types";
+import type { Alarm, Machine, MaintenanceRecord } from "@/lib/operations/types";
 
 type Summary = {
   totalMachines: number;
@@ -151,7 +153,7 @@ type Summary = {
   completedMaintenance?: number;
 };
 
-type DashboardResponse = Summary & { machines: Machine[]; alarms: Alarm[] };
+type DashboardResponse = Summary & { machines: Machine[]; alarms: Alarm[]; maintenanceRows: MaintenanceRecord[] };
 
 const emptySummary: Summary = {
   totalMachines: 0,
@@ -183,6 +185,9 @@ export function DashboardView() {
   const [summary, setSummary] = useState<Summary>(emptySummary);
   const [machines, setMachines] = useState<Machine[]>([]);
   const [alarms, setAlarms] = useState<Alarm[]>([]);
+  // Kept as a list, not just a count, so the maintenance figures can be scoped to
+  // the selected range instead of always reporting every job ever logged.
+  const [maintenanceRows, setMaintenanceRows] = useState<MaintenanceRecord[]>([]);
   const [dataState, setDataState] = useState<"loading" | "ready" | "fallback">("loading");
   const [activeNav, setActiveNav] = useState("Overview");
   const [query, setQuery] = useState("");
@@ -212,6 +217,7 @@ export function DashboardView() {
         });
         setMachines(Array.isArray(data.machines) ? data.machines : []);
         setAlarms(Array.isArray(data.alarms) ? data.alarms : []);
+        setMaintenanceRows(Array.isArray(data.maintenanceRows) ? data.maintenanceRows : []);
         setReferenceTime(Date.now());
         setDataState("ready");
       })
@@ -220,6 +226,7 @@ export function DashboardView() {
         setSummary(emptySummary);
         setMachines([]);
         setAlarms([]);
+        setMaintenanceRows([]);
         setDataState("fallback");
       });
     return () => {
@@ -227,22 +234,59 @@ export function DashboardView() {
     };
   }, []);
 
-  const machineName = useMemo(() => {
-    const names = new Map(machines.map((machine) => [machine.id, machine.machine_id]));
-    return (id: string) => names.get(id) ?? "Unknown machine";
-  }, [machines]);
+  // Built from every machine the API returns, archived included, so an alarm on a
+  // retired machine still shows its code instead of "Unknown machine".
+  const machineName = useMemo(() => machineNameLookup(machines), [machines]);
+  // A retired machine is kept for its history but is no longer part of the
+  // plant, so it is left out of the machine list while staying available for
+  // name lookups above.
+  const inServiceMachines = useMemo(() => activeMachines(machines), [machines]);
 
   const rangeMs = range === "24h" ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
   const rangeStart = referenceTime ? referenceTime - rangeMs : 0;
-  const filteredAlarms = alarms.filter((alarm) => {
-    const matchesQuery = `${alarm.alarm_code} ${alarm.description} ${machineName(alarm.machine_id)}`.toLowerCase().includes(query.toLowerCase());
-    const occurredAt = new Date(alarm.occurred_at).getTime();
-    return alarm.status !== "closed" && matchesQuery && (Number.isNaN(occurredAt) || occurredAt >= rangeStart);
+  const inRange = (value: string) => {
+    const at = new Date(value).getTime();
+    return Number.isNaN(at) || at >= rangeStart;
+  };
+
+  /**
+   * What the range and the search box actually scope.
+   *
+   * A machine's status is a fact about right now, so filtering it by time would
+   * be misleading, and the totals for the plant stay as they are. Everything
+   * that is a matter of record: the alarm queue, the alarm chart, and the
+   * maintenance figures, are scoped to the window. Closed alarms leave the
+   * active count, so the card tracks what needs attention in that window rather
+   * than everything ever recorded.
+   */
+  const matchesQuery = (text: string) => text.toLowerCase().includes(query.toLowerCase().trim());
+
+  const scopedAlarms = alarms.filter((alarm) => {
+    const text = `${alarm.alarm_code} ${alarm.description} ${machineName(alarm.machine_id)}`;
+    return matchesQuery(text) && inRange(alarm.occurred_at);
   });
 
+  const activeScopedAlarms = scopedAlarms.filter((alarm) => alarm.status !== "closed");
+  const machinesInAlarm = new Set(scopedAlarms.map((alarm) => alarm.machine_id));
+  const alarmServicingMachines = inServiceMachines.filter((machine) => machine.status === "maintenance");
+
+  const scopedMaintenance = maintenanceRows.filter((record) => {
+    const text = `${record.problem} ${record.action_taken} ${machineName(record.machine_id)}`;
+    return matchesQuery(text) && inRange(record.started_at);
+  });
+  const completedScoped = scopedMaintenance.filter((record) => record.status === "completed");
+
+  const alarmCriticalMachines = inServiceMachines.filter((machine) => machine.status === "alarm" && machinesInAlarm.has(machine.id));
+  // A machine under maintenance counts when it has a job inside the window, not
+  // merely because its status says so, so the figure matches the filter above.
+  const servicingInWindow = alarmServicingMachines.filter((machine) =>
+    scopedMaintenance.some((record) => record.machine_id === machine.id && record.status !== "completed"));
+
   const uptime = summary.totalMachines ? ((summary.running / summary.totalMachines) * 100).toFixed(1) : "0.0";
-  const maintenanceCompleted = summary.completedMaintenance ?? 0;
-  const compliance = summary.maintenanceRecords ? Math.round((maintenanceCompleted / summary.maintenanceRecords) * 100) : 0;
+  const scopedCompliance = scopedMaintenance.length
+    ? Math.round((completedScoped.length / scopedMaintenance.length) * 100)
+    : 0;
+  const stillOpen = activeScopedAlarms.length;
   const runningPercent = summary.totalMachines ? (summary.running / summary.totalMachines) * 100 : 0;
   const maintenancePercent = summary.totalMachines ? (summary.maintenance / summary.totalMachines) * 100 : 0;
   const alarmPercent = summary.totalMachines ? (summary.alarm / summary.totalMachines) * 100 : 0;
@@ -336,31 +380,31 @@ export function DashboardView() {
 
           <section className={metricGrid} aria-label="ภาพรวมโรงงาน">
             <MetricCard label="Total machines" value={String(summary.totalMachines)} delta={`${summary.running} running`} note={dataState === "fallback" ? "data unavailable · check Supabase" : "live from Supabase"} icon={<Bot size={18} />} tone="blue" />
-            <MetricCard label="Active alarms" value={String(summary.activeAlarms)} delta={`${plural(summary.alarm, "machine", "machines")} critical`} note="need attention" icon={<AlertTriangle size={18} />} tone="orange" alert />
-            <MetricCard label="Maintenance records" value={String(summary.maintenanceRecords).padStart(2, "0")} delta={plural(summary.maintenance, "machine")} note="scheduled work" icon={<Wrench size={18} />} tone="green" />
+            <MetricCard label="Active alarms" value={String(activeScopedAlarms.length)} delta={`${plural(alarmCriticalMachines.length, "machine", "machines")} critical`} note={`need attention · ${range === "24h" ? "last 24 hours" : "last 7 days"}`} icon={<AlertTriangle size={18} />} tone="orange" alert />
+            <MetricCard label="Maintenance records" value={String(scopedMaintenance.length).padStart(2, "0")} delta={`${plural(completedScoped.length, "job")} completed`} note={`${range === "24h" ? "last 24 hours" : "last 7 days"}`} icon={<Wrench size={18} />} tone="green" />
             <MetricCard label="Running rate" value={`${uptime}%`} delta={plural(summary.totalMachines, "machine")} note="current machine state" icon={<CircleGauge size={18} />} tone="violet" />
           </section>
 
           <div className={sectionGrid}>
             <section className={panel}>
-              <div className={panelHeader}><div><div className={panelTitleRow}><h2 className={panelTitle}>Alarm queue</h2><span className={countBadge}>{summary.activeAlarms} active</span></div><p className={panelSubtitle}>Real-time alerts requiring attention</p></div><button className={textButton} onClick={() => router.push("/alarms")}>View all <span className="ml-[5px] text-[15px]">→</span></button></div>
+              <div className={panelHeader}><div><div className={panelTitleRow}><h2 className={panelTitle}>Alarm queue</h2><span className={countBadge}>{activeScopedAlarms.length} active</span></div><p className={panelSubtitle}>Real-time alerts requiring attention</p></div><button className={textButton} onClick={() => router.push("/alarms")}>View all <span className="ml-[5px] text-[15px]">→</span></button></div>
               <div className={tableToolbar}><div className={searchBox}><Search size={16} /><input className={searchInput} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search alarms..." aria-label="ค้นหา alarms" /></div><button className={`${filterButton} ${showFilters ? filterButtonSelected : ""}`} onClick={() => setShowFilters(!showFilters)}><SlidersHorizontal size={15} />Filter</button></div>
-              {showFilters && <div className={filterStrip}><span>Showing</span><strong>{range === "24h" ? "Last 24 hours" : "Last 7 days"}</strong><button className={filterStripClear} onClick={() => { setQuery(""); setRange("24h"); }}>Clear</button></div>}
-              <div className={alarmList}>{filteredAlarms.slice(0, 6).map((alarm) => <AlarmRow key={alarm.id} alarm={alarm} machine={machineName(alarm.machine_id)} />)}</div>
-              {filteredAlarms.length === 0 && <div className={emptyState}>No alarms match your search and time range.</div>}
-              {/* The chart is a 7-day trend, so it is always a week. The range
-                  selector above filters the alarm queue, not this. */}
-              <AlarmChart alarms={alarms} days={7} />
+              {showFilters && <div className={filterStrip}><span>Showing</span><strong>{range === "24h" ? "Last 24 hours" : "Last 7 days"}</strong><span className={filterStripCount}>{stillOpen} active · {plural(servicingInWindow.length, "machine")} being serviced</span><button className={filterStripClear} onClick={() => { setQuery(""); setRange("24h"); }}>Clear</button></div>}
+              <div className={alarmList}>{activeScopedAlarms.slice(0, 6).map((alarm) => <AlarmRow key={alarm.id} alarm={alarm} machine={machineName(alarm.machine_id)} />)}</div>
+              {activeScopedAlarms.length === 0 && <div className={emptyState}>No active alarms in this range.</div>}
+              {/* The chart is a 7-day trend, so it is always a week, and it plots
+                  every alarm inside the window rather than only the open ones. */}
+              <AlarmChart alarms={scopedAlarms} days={7} />
             </section>
 
             <section className={`${panel} max-[1100px]:min-h-0`}>
               <div className={panelHeader}><div><h2 className={panelTitle}>Machine health</h2><p className={panelSubtitle}>Status across production lines</p></div><button className={iconButton} onClick={() => router.push("/machines")} aria-label="Open machines"><MoreHorizontal size={18} /></button></div>
               <div className={healthSummary}><div className={donut} style={{ background: `conic-gradient(var(--color-success) 0 ${runningPercent}%, var(--color-warn) ${runningPercent}% ${runningPercent + maintenancePercent}%, var(--color-danger) ${runningPercent + maintenancePercent}% ${runningPercent + maintenancePercent + alarmPercent}%, var(--color-steel) ${runningPercent + maintenancePercent + alarmPercent}% 100%)` }}><div className={donutCenter}><strong>{summary.totalMachines}</strong><span>machines</span></div></div><div className={legend}><Legend color="var(--color-success)" label="Running" value={summary.running} /><Legend color="var(--color-warn)" label="Maintenance" value={summary.maintenance} /><Legend color="var(--color-danger)" label="Alarm" value={summary.alarm} /><Legend color="var(--color-steel)" label="Stopped" value={summary.stop} /></div></div>
-              <div className={machineList}>{machines.slice(0, 5).map((machine) => <MachineRow key={machine.id} machine={machine} openAlarms={alarms.filter((alarm) => alarm.machine_id === machine.id && alarm.status !== "closed").length} />)}{machines.length === 0 && <div className={emptyState}>No machines found.</div>}</div>
+              <div className={machineList}>{inServiceMachines.slice(0, 5).map((machine) => <MachineRow key={machine.id} machine={machine} openAlarms={alarms.filter((alarm) => alarm.machine_id === machine.id && alarm.status !== "closed").length} />)}{inServiceMachines.length === 0 && <div className={emptyState}>No machines found.</div>}</div>
             </section>
           </div>
 
-          <section className={bottomStrip}><div className={stripIcon}><ShieldCheck size={18} /></div><div className={stripBody}><strong className={stripTitle}>Maintenance completion</strong><span className={stripMeta}>{maintenanceCompleted} of {summary.maintenanceRecords} work orders completed</span></div><div className={stripProgress}><div className={stripProgressLabels}><span>{compliance}%</span><span>Target 90%</span></div><div className={progressTrack}><div className={progressFill} style={{ width: `${Math.min(100, compliance)}%` }} /></div></div><button className={`${textButton} ${stripLink}`} onClick={() => router.push("/maintenance")}>View records <span className="ml-[5px] text-[15px]">→</span></button></section>
+          <section className={bottomStrip}><div className={stripIcon}><ShieldCheck size={18} /></div><div className={stripBody}><strong className={stripTitle}>Maintenance completion</strong><span className={stripMeta}>{completedScoped.length} of {scopedMaintenance.length} work orders completed</span></div><div className={stripProgress}><div className={stripProgressLabels}><span>{scopedCompliance}%</span><span>Target 90%</span></div><div className={progressTrack}><div className={progressFill} style={{ width: `${Math.min(100, scopedCompliance)}%` }} /></div></div><button className={`${textButton} ${stripLink}`} onClick={() => router.push("/maintenance")}>View records <span className="ml-[5px] text-[15px]">→</span></button></section>
         </div>
       </section>
     </main>

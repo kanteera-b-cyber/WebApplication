@@ -1,54 +1,80 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const MACHINE_LIST_COLUMNS = "id, machine_id, machine_name, machine_type, location, status, updated_at";
-export const MACHINE_OPTION_COLUMNS = "id, machine_id";
+
+/**
+ * Enough of a machine to name it in a list and to know whether it is retired.
+ *
+ * `is_archived` has to be selected wherever a machine is looked up by id, because
+ * a record such as an alarm can point at a machine that has since been archived.
+ * Reading only the active machines left those records unnameable and the
+ * interface fell back to "Unknown machine".
+ */
+export const MACHINE_REFERENCE_COLUMNS = "id, machine_id, machine_name, status, is_archived";
 
 type QueryError = { code?: string; message?: string } | null;
 
 export type MachineQueryResult<T> = { data: T[] | null; error: QueryError };
 
+/** A machine as far as a record that points at it needs to know. */
+export type MachineReference = {
+  id: string;
+  machine_id: string;
+  machine_name: string;
+  status: string;
+  is_archived: boolean | null;
+};
+
 /**
- * Reads the machines table, hiding archived rows.
+ * Reads every machine, archived ones included.
  *
- * `is_archived` arrives with migration 004. Until that migration has been applied
- * the column does not exist and PostgREST rejects the whole request, so we fall
- * back to an unfiltered read and remember the answer for the rest of the session.
- * This keeps every machine module usable before and after the migration is run.
+ * Callers use this to resolve a record's machine by id. An alarm or a maintenance
+ * record can outlive the machine it points at, because both tables delete with
+ * `on delete restrict`, so reading only the active rows left those records
+ * unnameable. Filter with `isActive` where the list itself should exclude retired
+ * machines, such as a form that creates a new alarm.
  */
-let archiveColumnAvailable: boolean | null = null;
-
-function isMissingArchiveColumn(error: QueryError): boolean {
-  if (!error) return false;
-  return error.code === "42703" || /is_archived/i.test(error.message ?? "");
-}
-
-/** Test seam: forget the cached capability check. */
-export function resetArchiveColumnSupport(): void {
-  archiveColumnAvailable = null;
-}
-
-export async function listActiveMachines<T>(
+export async function listMachines<T>(
   supabase: SupabaseClient,
-  columns: string,
+  columns: string = MACHINE_REFERENCE_COLUMNS,
 ): Promise<MachineQueryResult<T>> {
-  if (archiveColumnAvailable !== false) {
-    const filtered = await supabase.from("machines").select(columns).eq("is_archived", false).order("machine_id");
-    if (!filtered.error) {
-      archiveColumnAvailable = true;
-      return { data: (filtered.data ?? []) as T[], error: null };
-    }
-    if (!isMissingArchiveColumn(filtered.error)) {
-      return { data: null, error: filtered.error };
-    }
-    archiveColumnAvailable = false;
-  }
-  const unfiltered = await supabase.from("machines").select(columns).order("machine_id");
-  return { data: (unfiltered.data ?? []) as T[], error: unfiltered.error };
+  const result = await supabase.from("machines").select(columns).order("machine_id");
+  // null on failure, not an empty array. An empty array is a truthful answer to
+  // "are there any machines", and a caller that read it without checking the
+  // error would render an empty plant instead of reporting a failed query.
+  if (result.error) return { data: null, error: result.error };
+  return { data: (result.data ?? []) as T[], error: null };
+}
+
+/**
+ * True when a machine is still in service.
+ *
+ * A null flag is treated as active so a row selected without `is_archived` is
+ * never silently dropped from a list.
+ */
+export function isActive(machine: { is_archived?: boolean | null }): boolean {
+  return !machine.is_archived;
+}
+
+/** The machines still in service, for a form that creates a new record. */
+export function activeMachines<T extends { is_archived?: boolean | null }>(machines: T[]): T[] {
+  return machines.filter(isActive);
+}
+
+/**
+ * Builds the lookup that turns a machine_id into a readable name.
+ *
+ * Returns a function rather than a map because every caller needs exactly the
+ * same "what do I print for this id" question, and a miss should read
+ * "Unknown machine" everywhere instead of leaking a raw uuid into the table.
+ */
+export function machineNameLookup(machines: { id: string; machine_id: string }[]): (id: string) => string {
+  const names = new Map(machines.map((machine) => [machine.id, machine.machine_id]));
+  return (id: string) => names.get(id) ?? "Unknown machine";
 }
 
 /**
  * Toggles the archive flag on a machine and returns the updated row.
- * Only functional once migration 004 has been applied.
  */
 export async function setMachineArchived(supabase: SupabaseClient, machineId: string, isArchived: boolean) {
   return supabase

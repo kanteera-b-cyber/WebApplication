@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import type { Alarm, Machine, MaintenanceRecord } from "@/lib/operations/types";
-import { listActiveMachines, MACHINE_LIST_COLUMNS } from "@/lib/operations/machines";
+import { MACHINE_REFERENCE_COLUMNS, listMachines } from "@/lib/operations/machines";
 
 export async function GET() {
   try {
@@ -10,7 +10,9 @@ export async function GET() {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const [machineResult, alarmResult, maintenanceResult] = await Promise.all([
-      listActiveMachines<Machine>(supabase, MACHINE_LIST_COLUMNS),
+      // Every machine, so an alarm on a retired machine can still be named.
+      // Archived rows are filtered out of the counts below instead of the query.
+      listMachines<Machine & { is_archived?: boolean }>(supabase, MACHINE_REFERENCE_COLUMNS),
       supabase.from("alarms").select("id, machine_id, alarm_code, description, occurred_at, cause, action_taken, status, closed_at, updated_at").order("occurred_at", { ascending: false }),
       supabase.from("maintenance_records").select("id, machine_id, technician_id, problem, action_taken, started_at, completed_at, status, updated_at").order("started_at", { ascending: false }),
     ]);
@@ -19,7 +21,10 @@ export async function GET() {
       return NextResponse.json({ error: "Unable to load dashboard data." }, { status: 503 });
     }
 
-    const machineRows = machineResult.data ?? [];
+    const everyMachine = machineResult.data ?? [];
+    // A retired machine is no longer producing, so it must not appear in the
+    // status breakdown or the total, but its id is still needed to name records.
+    const machineRows = everyMachine.filter((row) => !row.is_archived);
     const alarmRows = (alarmResult.data ?? []) as Alarm[];
     const maintenanceRows = (maintenanceResult.data ?? []) as MaintenanceRecord[];
 
@@ -32,7 +37,7 @@ export async function GET() {
       activeAlarms: alarmRows.filter((row) => row.status !== "closed").length,
       maintenanceRecords: maintenanceRows.length,
       completedMaintenance: maintenanceRows.filter((row) => row.status === "completed").length,
-      machines: machineRows,
+      machines: everyMachine,
       alarms: alarmRows,
       maintenanceRows,
     }, { headers: { "Cache-Control": "private, no-store" } });

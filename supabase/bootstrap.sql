@@ -32,7 +32,9 @@
 --    7. 007_seed_viewer_account.sql  (sha256:aa63a280c183)
 --    8. 008_seed_friendly_actor_defaults.sql  (sha256:361d7072a4c1)
 --    9. 009_audit_change_requests.sql  (sha256:352304462be5)
---   10. seed.sql  (sha256:b1a7e04a6342)
+--   10. 010_column_length_limits.sql  (sha256:08179732e311)
+--   11. 011_profile_self_service.sql  (sha256:f31c17bc7763)
+--   12. seed.sql  (sha256:b1a7e04a6342)
 -- ===========================================================================
 
 -- ==========================================================================
@@ -977,6 +979,192 @@ create trigger change_requests_audit
 -- fifth audited table.
 --
 --   machines | alarms | maintenance_records | change_requests
+
+-- ==========================================================================
+-- 010_column_length_limits.sql
+-- sha256:08179732e311
+-- ==========================================================================
+-- 010_column_length_limits.sql
+--
+-- Runs after 009_audit_change_requests.sql.
+--
+-- Problem: every maximum length was enforced only in the browser. The forms use
+-- maxLength and the validators throw above the limit, but a direct call to the
+-- PostgREST endpoint bypasses both, so a caller that never opens the interface
+-- could store an unbounded string in any text column. Empty and enum rules were
+-- already in the database; length rules were not.
+--
+-- The limits below are the same numbers the forms use, so a value the interface
+-- accepts is still accepted and one it rejects is now rejected by the database
+-- too. Nothing changes for a user of the application.
+--
+--   machines               machine_id 32, machine_name 120,
+--                          machine_type 80, location 160
+--   alarms                 alarm_code 80, description 1000,
+--                          cause 2000, action_taken 2000
+--   maintenance_records    problem 2000, action_taken 2000
+--   profiles               display_name 120
+--   change_requests        description 2000, review_note 2000
+--
+-- change_requests.title already had a 3-120 check from migration 006 and is
+-- left alone.
+--
+-- audit_log is written by a trigger from to_jsonb of the audited row and is not
+-- user-editable, so it is deliberately not constrained. Constraining it would
+-- only risk the trigger failing on a legitimate write.
+--
+-- Each constraint is dropped before it is added, because PostgreSQL has no ADD
+-- CONSTRAINT IF NOT EXISTS. The whole file is safe to run more than once.
+
+-- ---------------------------------------------------------------------------
+-- machines
+-- ---------------------------------------------------------------------------
+-- machine_id already has machines_machine_id_not_blank covering 2-32.
+
+alter table public.machines drop constraint if exists machines_machine_name_length;
+alter table public.machines add constraint machines_machine_name_length
+  check (length(machine_name) <= 120);
+
+alter table public.machines drop constraint if exists machines_machine_type_length;
+alter table public.machines add constraint machines_machine_type_length
+  check (length(machine_type) <= 80);
+
+alter table public.machines drop constraint if exists machines_location_length;
+alter table public.machines add constraint machines_location_length
+  check (length(location) <= 160);
+
+-- ---------------------------------------------------------------------------
+-- alarms
+-- ---------------------------------------------------------------------------
+alter table public.alarms drop constraint if exists alarms_code_length;
+alter table public.alarms add constraint alarms_code_length
+  check (length(alarm_code) <= 80);
+
+alter table public.alarms drop constraint if exists alarms_description_length;
+alter table public.alarms add constraint alarms_description_length
+  check (length(description) <= 1000);
+
+alter table public.alarms drop constraint if exists alarms_cause_length;
+alter table public.alarms add constraint alarms_cause_length
+  check (cause is null or length(cause) <= 2000);
+
+alter table public.alarms drop constraint if exists alarms_action_taken_length;
+alter table public.alarms add constraint alarms_action_taken_length
+  check (action_taken is null or length(action_taken) <= 2000);
+
+-- ---------------------------------------------------------------------------
+-- maintenance_records
+-- ---------------------------------------------------------------------------
+alter table public.maintenance_records drop constraint if exists maintenance_problem_length;
+alter table public.maintenance_records add constraint maintenance_problem_length
+  check (length(problem) <= 2000);
+
+alter table public.maintenance_records drop constraint if exists maintenance_action_length;
+alter table public.maintenance_records add constraint maintenance_action_length
+  check (length(action_taken) <= 2000);
+
+-- ---------------------------------------------------------------------------
+-- profiles
+-- ---------------------------------------------------------------------------
+-- 120 is generous for a display name and matches what the sign-up form allows,
+-- so a long name is stored rather than truncated silently.
+alter table public.profiles drop constraint if exists profiles_display_name_length;
+alter table public.profiles add constraint profiles_display_name_length
+  check (length(display_name) <= 120);
+
+-- ---------------------------------------------------------------------------
+-- change_requests
+-- ---------------------------------------------------------------------------
+alter table public.change_requests drop constraint if exists change_requests_description_length;
+alter table public.change_requests add constraint change_requests_description_length
+  check (length(description) <= 2000);
+
+alter table public.change_requests drop constraint if exists change_requests_review_note_length;
+alter table public.change_requests add constraint change_requests_review_note_length
+  check (review_note is null or length(review_note) <= 2000);
+
+-- ---------------------------------------------------------------------------
+-- Report what is now in place
+-- ---------------------------------------------------------------------------
+select
+  c.relname as table_name,
+  count(*) filter (where pg_get_constraintdef(con.oid) ilike '%length%') as length_checks
+from pg_constraint con
+join pg_class c on c.oid = con.conrelid
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public'
+  and c.relname in ('profiles', 'machines', 'alarms', 'maintenance_records', 'change_requests')
+  and con.contype = 'c'
+group by c.relname
+order by c.relname;
+
+-- ==========================================================================
+-- 011_profile_self_service.sql
+-- sha256:f31c17bc7763
+-- ==========================================================================
+-- 011_profile_self_service.sql
+--
+-- Runs after 010_column_length_limits.sql.
+--
+-- Problem: a user had no way to correct their own display name. The only policy
+-- on profiles was "admins manage profiles", which is FOR ALL USING (is_admin()),
+-- so an ordinary Technician could not update their own row at all.
+--
+-- Granting a blanket UPDATE would be a privilege escalation: role lives in the
+-- same row, so a user allowed to update their profile could set
+-- role = 'admin' on it. Row Level Security cannot restrict an update to a subset
+-- of columns, so the guard is a trigger.
+--
+-- Two pieces:
+--   1. "users update own profile" lets a signed-in user update their own row.
+--   2. protect_profile_role() puts the role back, or refuses, unless the caller
+--      really is an Admin.
+--
+-- The trigger raises rather than silently reverting, so the interface can tell
+-- the user their request was refused instead of appearing to succeed.
+
+alter table public.profiles drop constraint if exists profiles_role_length;
+alter table public.profiles add constraint profiles_role_length
+  check (role in ('admin', 'technician', 'viewer'));
+
+-- 1. Self-service update ----------------------------------------------------
+drop policy if exists "users update own profile" on public.profiles;
+create policy "users update own profile" on public.profiles
+  for update to authenticated
+  using (id = auth.uid())
+  with check (id = auth.uid());
+
+-- 2. The role guard ---------------------------------------------------------
+create or replace function public.protect_profile_role() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  -- An Admin may change anyone's role, including their own.
+  if public.is_admin() then
+    return new;
+  end if;
+
+  if new.role is distinct from old.role then
+    raise exception 'only an Admin can change a role'
+      using hint = 'Ask an administrator to update your role from the Users page.';
+  end if;
+
+  -- id and role are the only columns that matter for identity; everything else
+  -- on this row is presentation, so anything left alone is a user's own choice.
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_protect_role on public.profiles;
+create trigger profiles_protect_role
+  before update on public.profiles
+  for each row execute function public.protect_profile_role();
+
+-- ---------------------------------------------------------------------------
+-- Verify
+-- ---------------------------------------------------------------------------
+select policyname, cmd from pg_policies
+where schemaname = 'public' and tablename = 'profiles'
+order by policyname;
 
 -- ==========================================================================
 -- seed.sql  (sha256:b1a7e04a6342)
