@@ -45,11 +45,20 @@ jobs:
         id: lint
         run: npm run lint
 
-      - name: 3. Typecheck
+      # `next typegen` writes the route/layout types that Next.js provides
+      # through `LayoutProps`, `PageProps` and friends. Those live in .next/types,
+      # which is gitignored, so a fresh CI checkout does not have them and
+      # `tsc` would fail with "Cannot find name 'LayoutProps'". Generating them
+      # first makes the typecheck run against the same types a developer gets.
+      - name: 3. Generate Next.js route types
+        id: typegen
+        run: npx next typegen
+
+      - name: 4. Typecheck
         id: types
         run: npm run typecheck
 
-      - name: 4. Build
+      - name: 5. Build
         id: build
         run: npm run build
 
@@ -63,6 +72,7 @@ jobs:
             echo "| --- | --- |"
             echo "| Install dependencies | ${{ steps.deps.outcome }} |"
             echo "| Lint | ${{ steps.lint.outcome }} |"
+            echo "| Generate route types | ${{ steps.typegen.outcome }} |"
             echo "| Typecheck | ${{ steps.types.outcome }} |"
             echo "| Build | ${{ steps.build.outcome }} |"
           } >> "$GITHUB_STEP_SUMMARY"
