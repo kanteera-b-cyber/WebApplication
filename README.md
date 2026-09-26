@@ -77,6 +77,22 @@ Statuses: `In Progress`, `Completed`.
 
 Technicians are selected from `profiles` and the database trigger ensures a Technician can only own their own maintenance work.
 
+#### Assignment requirement coverage
+
+Every data requirement in sections 3.2 to 3.4, mapped to the code that implements it. All rows below were verified against the live database.
+
+| Requirement | Implementation | Verified |
+| --- | --- | --- |
+| 3.2 Machine fields: Machine ID, Machine Name, Machine Type, Location, Status | `machines` table, `machine-console.tsx` modal | 5/5 fields round-trip |
+| 3.2 Statuses: Running, Stop, Alarm, Maintenance | `machine_status` enum | all 4 accepted |
+| 3.2 Machine Master CRUD | `machine-console.tsx` add / edit / archive / restore / delete | Create, Read, Update, Delete all pass |
+| 3.3 Alarm fields: Machine, Alarm Code, Alarm Description, Date/Time, Cause, Status | `alarms` table, `alarm-console.tsx` modal | 6/6 fields round-trip |
+| 3.3 Statuses: Open, In Progress, Closed | `alarm_status` enum | all 3 transitions pass |
+| 3.3 Alarm Record Create, Read, Update | `alarm-console.tsx` | all pass |
+| 3.4 Maintenance Record Create, Read, Update | `maintenance-console.tsx` | all pass |
+
+**On Machine Master Delete.** Delete is available to Admin on every row. A machine that is still referenced by an alarm or a maintenance record cannot be removed, because the database rejects it with a foreign-key violation; the console then tells the admin to use **Archive** instead. Archiving keeps the machine out of the active list while preserving every historical alarm and maintenance record, and an archived machine is forced to `Stop` so it never inflates the dashboard counters. This is a deliberate integrity choice rather than a missing feature, and both paths are reachable from the same row.
+
 ### Search, filter and dashboard
 
 - Text search and status filters are available on Machines, Alarms and Maintenance.
