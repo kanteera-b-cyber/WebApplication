@@ -47,9 +47,27 @@ inspected in code.
 
 Remaining before the project is shown outside the team:
 
-- [ ] Change or delete the demo accounts listed in `SUBMISSION_CHECKLIST.md`.
-- [ ] Revoke the Supabase management access token used during development.
+- [ ] Revoke the Supabase management access token used during development, at
+      <https://supabase.com/dashboard/account/tokens>.
 - [ ] Decide whether the seeded demo data should stay or be cleared.
+
+## 3a. Accounts and credentials
+
+The deployment has no public account. Demo accounts for all three roles were
+created so screenshots could be taken of each one, and their passwords were
+published in the README so a reviewer could sign in. That combination was a real
+exposure: anyone who cloned the repository could sign in as an Admin on a
+deployed URL.
+
+The accounts have been deleted, the credentials are out of the documentation, and
+`supabase/make-admin.sql` replaces the old automatic promotion with a deliberate
+one that names the account. The seeded data stays, so a new registration sees
+machines and alarms immediately.
+
+The reasoning is recorded here because it is a judgement, not a rule: promoting
+the first account automatically would have been less friction, and on a student
+project the risk is small. It was not done anyway, because a public deployment
+means "first account registered" is not necessarily the owner.
 
 ## 4. Security statement
 

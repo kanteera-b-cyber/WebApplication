@@ -49,15 +49,22 @@ these hold even for a caller who skips the interface entirely.
 
 The full set, including validation messages, the audit log, machine history,
 change requests, dark mode, the mobile layout and the read-only Viewer role, is
-in `screenshots/` and indexed in `README.md`.
+in `screenshots/` and indexed in `README.md` section 9.
 
-## Demo accounts
+## Accounts
 
-Created so the system can be opened and checked without registering first.
-Change or remove these before the project is shown to anyone outside the team.
+The deployment has **no public account**. Demo accounts whose passwords were
+published in the repository have been deleted, because anyone who cloned the
+repository could otherwise sign in as an Admin.
 
-| Role | Email | Password |
-| --- | --- | --- |
-| Admin | `demo.admin@forgeops.dev` | `DemoAdmin@2026` |
-| Technician | `demo.tech@forgeops.dev` | `DemoTech@2026` |
-| Viewer (read-only) | `demo.viewer@forgeops.dev` | `DemoViewer@2026` |
+To open the system, register at `/login` and then run the statement in
+`supabase/make-admin.sql` with your own email. That path was verified end to
+end: register, promote, create a machine, and re-running the statement is
+harmless. Seeded data is still present, so machines and alarms are visible
+immediately after registering.
+
+- [x] Demo accounts removed from the database
+- [x] Published credentials removed from `README.md` and this checklist
+- [x] First-run path documented in `README.md` section 5.3 and tested
+- [ ] The Supabase management access token used during development has been revoked
+      (do this at <https://supabase.com/dashboard/account/tokens>)
