@@ -132,6 +132,23 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
 Never put a Supabase Service Role Key in a `NEXT_PUBLIC_*` variable or in client-side code.
 
+### Bootstrap the database in one step
+
+Paste `supabase/setup.sql` into the Supabase SQL Editor and press Run. It is idempotent, so it is safe to run more than once. It:
+
+1. repairs the sign-up trigger so the chosen role is honoured;
+2. promotes the oldest account to Admin so you can manage records;
+3. inserts four demo machines, two alarms and one maintenance record;
+4. prints a verification table of every account and role.
+
+Then sign out and sign in again, because the role is read once when the app mounts.
+
+To apply the schema from scratch instead, run the migrations in [section 4](#4-database-structure) individually and promote your own account with:
+
+```sql
+update public.profiles set role = 'admin' where id = 'AUTH-USER-UUID-HERE';
+```
+
 ### Allow sign-up without email confirmation
 
 Supabase Dashboard → **Authentication → Sign In / Providers → Email** → turn off **Confirm email**.
