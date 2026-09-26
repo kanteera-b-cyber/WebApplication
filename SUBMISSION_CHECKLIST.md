@@ -66,5 +66,7 @@ immediately after registering.
 - [x] Demo accounts removed from the database
 - [x] Published credentials removed from `README.md` and this checklist
 - [x] First-run path documented in `README.md` section 5.3 and tested
-- [ ] The Supabase management access token used during development has been revoked
-      (do this at <https://supabase.com/dashboard/account/tokens>)
+- [ ] The Supabase management access token used during development has been
+      revoked, at <https://supabase.com/dashboard/account/tokens>
+
+> **หมายเหตุเรื่อง token:** เว็บที่ deploy **ไม่ได้ใช้** management token เลย ใช้แค่ `NEXT_PUBLIC_SUPABASE_URL` กับ anon key ที่ตั้งใจให้เป็น public และป้องกันด้วย RLS อีกทั้ง token ไม่ได้อยู่ในโค้ดหรือประวัติ git (ตรวจ 25 commits แล้ว = 0) ความเสี่ยงจึงมีจุดเดียวคือ **บทสนทนานี้** ถ้าจะส่ง transcript ไปด้วย ต้องลบหรือเปลี่ยนเป็น token ใหม่ก่อนเสมอ
