@@ -114,6 +114,56 @@ describe("isOneOf", () => {
   });
 });
 
+describe("message language", () => {
+  // The forms set noValidate, so these strings are the whole of what a user sees
+  // when a field is empty. A Thai-only or English-only message would leave half
+  // the audience unable to act on it.
+  const thai = /[\u0E00-\u0E7F]/;
+  const latinWords = /[a-z]{4,}/i;
+
+  it("writes every required-field message in both languages", () => {
+    const message = requiredTextError();
+    assert.match(message, thai, "needs Thai");
+    assert.match(message, latinWords, "needs English");
+  });
+
+  it("does the same for the machine id format rule", () => {
+    const message = errorFrom(() => machineId("bad id"));
+    assert.match(message, thai);
+    assert.match(message, /only letters/i);
+  });
+
+  it("does the same for the database error mapper", () => {
+    for (const [code, context] of [["23505", "machine"], ["42501", "machine"], ["23514", "alarm"], ["23514", "maintenance"], ["23503", "machine"]]) {
+      const message = describeWriteError({ code }, context as "machine" | "alarm" | "maintenance", "delete");
+      assert.match(message, thai, `${code}/${context} needs Thai`);
+      assert.match(message, latinWords, `${code}/${context} needs English`);
+    }
+  });
+
+  it("still says which field is missing, in English", () => {
+    assert.match(requiredTextError(), /Machine name is required/);
+  });
+});
+
+function requiredTextError(): string {
+  try {
+    requiredText("", "Machine name");
+  } catch (error) {
+    return error instanceof Error ? error.message : "";
+  }
+  return "";
+}
+
+function errorFrom(run: () => unknown): string {
+  try {
+    run();
+  } catch (error) {
+    return error instanceof Error ? error.message : "";
+  }
+  return "";
+}
+
 describe("toDateTimeLocal", () => {
   it("returns an empty string for missing or invalid input", () => {
     assert.equal(toDateTimeLocal(null), "");

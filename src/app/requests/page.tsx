@@ -238,7 +238,7 @@ export function ChangeRequestsPage() {
 
       {open && (
         <div className={modalBackdrop}>
-          <form className={modalCard} onSubmit={submit}>
+          <form className={modalCard} onSubmit={submit} noValidate>
             <div className={modalHeader}><h2 className={modalTitle}>New change request</h2></div>
             <div className={formGrid}>
               <label className={`${modalLabel} ${formGridFull}`}>Title<input className={modalControl} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Short summary of the change" minLength={3} maxLength={120} required /></label>
