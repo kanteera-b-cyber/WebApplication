@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Declaring them with `@theme` (instead of the old hand-written
+ * `:root` custom properties) makes them available as real Tailwind utilities,
+ * e.g. `bg-canvas`, `text-ink`, `border-line`, `bg-brand-soft`.
+ */
+@theme {
+  /* Surfaces + text */
+  --color-ink: #172334;
+  --color-muted: #718096;
+  --color-line: #e8edf2;
+  --color-canvas: #f6f8fb;
+  --color-steel: #9aa7b7;
+
+  /* Semantic status palette */
+  --color-brand: #3478f6;
+  --color-brand-soft: #edf4ff;
+  --color-success: #35a879;
+  --color-success-soft: #eaf8f1;
+  --color-warn: #e59645;
+  --color-warn-soft: #fff4e7;
+  --color-danger: #e05b5b;
+  --color-danger-soft: #fff0f0;
+  --color-grape: #8b72cf;
+  --color-grape-soft: #f3efff;
+
+  --font-sans: "Trebuchet MS", "Segoe UI", sans-serif;
+}
