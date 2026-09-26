@@ -185,10 +185,16 @@ Manual acceptance checks:
 1. Push this project to a GitHub repository.
 2. Import the repository into Vercel.
 3. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel Project Settings → Environment Variables.
-4. Run both Supabase migrations before testing the deployment.
+4. Run all four Supabase migrations before testing the deployment.
 5. Verify `/login`, `/dashboard`, `/machines`, `/alarms` and `/maintenance` on the Vercel URL.
 
+**GitHub repository:** https://github.com/kanteera-b-cyber/WebApplication
+
 **Vercel URL:** `[add the production Vercel URL here before submission]`
+
+### Styling with Tailwind CSS
+
+The interface is built entirely with Tailwind CSS v4. Design tokens are declared once with `@theme` in `src/app/globals.css` (for example `--color-brand`, `--color-ink`, `--color-line`) and are consumed as ordinary utilities such as `bg-canvas`, `text-ink` and `border-line`. Utility strings that are reused across the module pages are collected in `src/features/operations/module-styles.ts` and `src/features/operations/dashboard-styles.ts` to avoid repeating the same long class list in seven files. There is no hand-written component CSS.
 
 ## 8. AI usage disclosure
 
@@ -207,9 +213,9 @@ The developer verified the generated code, ran lint/build, applied Supabase migr
 
 See [`SUBMISSION_CHECKLIST.md`](./SUBMISSION_CHECKLIST.md) and [`AI_USAGE_REPORT.md`](./AI_USAGE_REPORT.md).
 
-- [ ] GitHub repository URL
+- [x] GitHub repository URL
 - [ ] Vercel deployment URL
-- [ ] Supabase migrations executed
+- [x] Supabase migrations executed
 - [ ] Admin and Technician test accounts created
 - [ ] README updated with the real Vercel URL
 - [ ] Dashboard screenshot captured
