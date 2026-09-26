@@ -77,7 +77,7 @@ function describeWriteError(error: unknown, context: "save" | "delete"): string 
   if (detail.code === "42501") return "Your role does not allow this change. Only Admin can manage machines.";
   if (detail.code === "23503") {
     return context === "delete"
-      ? "This machine is referenced by an alarm or maintenance record, so it cannot be deleted. Remove those records first, or set the machine to Stop."
+      ? "This machine is referenced by an alarm or maintenance record, so it cannot be deleted. Use Archive instead: the machine disappears from the active list while its history stays intact."
       : "This machine is referenced by an alarm or maintenance record and cannot be changed this way.";
   }
   return messageFromError(error);
@@ -202,14 +202,20 @@ export function MachineConsole() {
     }
   }
 
-  /** Permanent removal, for archived machines that have no history left to protect. */
+  /**
+   * Permanent removal, as required by the Machine Master CRUD requirement.
+   *
+   * A machine that still has alarm or maintenance history cannot be removed
+   * because those rows reference it. The database rejects that with an FK
+   * violation and `describeWriteError` points the admin at Archive instead.
+   */
   async function destroy(machine: Machine) {
     if (!canManage) {
       setError("Only Admin can delete machines.");
       return;
     }
     if (archivingId) return;
-    if (!window.confirm(`Permanently delete ${machine.machine_id}? This cannot be undone and fails if an alarm or maintenance record still points at this machine.`)) return;
+    if (!window.confirm(`Permanently delete ${machine.machine_id}? This cannot be undone. If the machine still has alarm or maintenance history the database will refuse, and you will need to Archive it instead.`)) return;
     try {
       setError("");
       setArchivingId(machine.id);
@@ -249,7 +255,7 @@ export function MachineConsole() {
                 <button className={iconButton} onClick={() => void archive(machine)} disabled={busy} aria-label={machine.is_archived ? `Restore ${machine.machine_id}` : `Archive ${machine.machine_id}`} aria-busy={busy} title={machine.is_archived ? "Restore" : "Archive"}>
                   {busy ? <LoaderCircle className="animate-spin" size={15} /> : machine.is_archived ? <RotateCcw size={15} /> : <Archive size={15} />}
                 </button>
-                {machine.is_archived && <button className={`${iconButton} hover:!text-danger`} onClick={() => void destroy(machine)} disabled={busy} aria-label={`Delete ${machine.machine_id} permanently`}><Trash2 size={15} /></button>}
+                <button className={`${iconButton} hover:!text-danger`} onClick={() => void destroy(machine)} disabled={busy} aria-label={`Delete ${machine.machine_id} permanently`} title="Delete permanently"><Trash2 size={15} /></button>
               </span>
             ) : <span className="text-[10px] text-[#a3adb8]">View only</span>}
           </div>
