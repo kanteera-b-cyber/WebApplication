@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
-import { Pencil, Plus, Search, ShieldAlert, Trash2, X } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { Pencil, Plus, Search, ShieldAlert, Target, Trash2, X } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import { useCurrentUser, canWrite } from "@/lib/auth/use-current-user";
 import { describeWriteError, isOneOf, requiredDate, requiredText, toDateTimeLocal } from "@/lib/operations/validation";
@@ -33,6 +33,7 @@ import {
   modalTitle,
   moduleEmpty,
   moduleError,
+  moduleNotice,
   rowStrong,
   rowSub,
   permissionNote,
@@ -42,6 +43,7 @@ import {
   shell,
   tableCard,
   tableHead,
+  tableRowFocused,
   tableRow,
   toolbar,
 } from "@/features/operations/module-styles";
@@ -60,6 +62,11 @@ function messageFromError(error: unknown) {
 
 export function MaintenanceConsole() {
   const router = useRouter();
+  // Deep links, matching the alarm console: ?id= lands on one job and ?status=
+  // seeds the filter, so a notification or an audit entry is a way in.
+  const searchParams = useSearchParams();
+  const focusId = searchParams.get("id");
+  const statusFromLink = searchParams.get("status");
   const { user, role } = useCurrentUser();
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
   const [machines, setMachines] = useState<MachineOption[]>([]);
@@ -72,6 +79,22 @@ export function MaintenanceConsole() {
   const [loading, setLoading] = useState(true);
   const canCreate = canWrite(role);
   const canDelete = role === "admin";
+
+  // A status arriving in the link seeds the filter. It is adjusted during render
+  // rather than in an effect, which is the only form the compiler lint accepts
+  // for reacting to a changed input, and it runs at most once per real change.
+  const [lastStatusFromLink, setLastStatusFromLink] = useState(statusFromLink);
+  if (statusFromLink !== lastStatusFromLink) {
+    setLastStatusFromLink(statusFromLink);
+    if (statusFromLink && isOneOf(statusFromLink, MAINTENANCE_STATUSES)) {
+      setFilter(statusFromLink);
+    }
+  }
+
+  const clearFocus = useCallback(() => {
+    if (!focusId) return;
+    router.replace("/maintenance", { scroll: false });
+  }, [focusId, router]);
 
   useEffect(() => {
     let active = true;
@@ -113,10 +136,22 @@ export function MaintenanceConsole() {
   const selectableMachines = activeMachines(machines);
   const technicianName = (id: string) => profiles.find((profile) => profile.id === id)?.display_name ?? "Unknown technician";
   const canEditRecord = (record: MaintenanceRecord) => canWrite(role) && (role === "admin" || record.technician_id === user?.id);
+  const focused = focusId ? records.find((record) => record.id === focusId) : undefined;
   const filtered = records.filter((record) => {
+    // A linked record is pulled out of the filter so it cannot be hidden by a
+    // status that is still selected.
+    if (focusId && record.id === focusId) return true;
     const text = `${record.problem} ${record.action_taken} ${machineName(record.machine_id)} ${technicianName(record.technician_id)} ${record.technician_id}`.toLowerCase();
     return text.includes(query.toLowerCase()) && (filter === "all" || record.status === filter);
   });
+
+  // Scroll the linked job into view once it is on screen, otherwise the link
+  // would land at the top of a list that may be several screens long.
+  const rowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!focusId || loading || !focused) return;
+    rowRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [focusId, focused, loading]);
 
   function openCreate() {
     setError("");
@@ -214,7 +249,18 @@ export function MaintenanceConsole() {
       <div className={heading}><div className={headingCopy}><p className={`${eyebrow} ${eyebrowAccent}`}>WORKSPACE / MAINTENANCE</p><h1 className={headingTitle}>Maintenance records</h1><p className={headingLead}>Capture problems, actions and technician work history.</p></div>{canCreate ? <button className={`${button} ${buttonPrimary}`} onClick={openCreate} disabled={selectableMachines.length === 0 || profiles.length === 0}><Plus size={15} />Log maintenance</button> : <span className={permissionNote}><ShieldAlert size={15} />Logging maintenance requires the Technician or Admin role</span>}</div>
       <div className={toolbar}><div className={searchBox}><Search size={16} /><input className={searchInput} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search machine, technician or work description..." aria-label="Search maintenance" /></div><select className={`${select} min-w-[150px] max-[760px]:h-[38px]`} value={filter} onChange={(event) => setFilter(event.target.value)} aria-label="Filter maintenance status"><option value="all">All statuses</option>{MAINTENANCE_STATUSES.map((status) => <option value={status} key={status}>{MAINTENANCE_STATUS_LABELS[status]}</option>)}</select></div>
       {error && <div className={moduleError} role="alert">{error}</div>}
-      {loading ? <div className={moduleEmpty}>Loading maintenance records...</div> : <div className={tableCard}><div className={tableHead}><span>Machine</span><span>Problem</span><span>Action taken</span><span>Status / actions</span></div>{filtered.map((record) => <div className={tableRow} key={record.id}><strong className={rowStrong}>{machineName(record.machine_id)}<small className={rowSub}>{technicianName(record.technician_id)}</small></strong><span>{record.problem}</span><span>{record.action_taken}</span><span className="flex items-center gap-1"><select className={select} value={record.status} disabled={!canEditRecord(record)} onChange={(event) => void changeStatus(record, event.target.value)} aria-label={`Status for ${machineName(record.machine_id)}`}>{MAINTENANCE_STATUSES.map((status) => <option value={status} key={status}>{MAINTENANCE_STATUS_LABELS[status]}</option>)}</select>{canEditRecord(record) && <button className={iconButton} onClick={() => openEdit(record)} aria-label="Edit maintenance record"><Pencil size={15} /></button>}{canDelete && <button className={`${iconButton} hover:!text-danger`} onClick={() => void remove(record)} aria-label="Delete maintenance record"><Trash2 size={15} /></button>}</span></div>)}{filtered.length === 0 && <div className={moduleEmpty}>No maintenance records match your search.</div>}</div>}
+      {focusId && (
+        <div className={`${moduleNotice} max-w-[1180px]`} role="status">
+          <Target size={14} className="shrink-0 text-brand" />
+          <span className="flex-1">
+            {focused
+              ? `Showing "${focused.problem}", opened from a link. It is listed even if the filters would hide it.`
+              : "Looking for the maintenance record from that link. It is not in the list, which usually means it was deleted or your role cannot see it."}
+          </span>
+          <button className={iconButton} onClick={clearFocus} aria-label="Clear the link and show the whole list"><X size={14} /></button>
+        </div>
+      )}
+      {loading ? <div className={moduleEmpty}>Loading maintenance records...</div> : <div className={tableCard}><div className={tableHead}><span>Machine</span><span>Problem</span><span>Action taken</span><span>Status / actions</span></div>{filtered.map((record) => <div ref={record.id === focusId ? rowRef : undefined} className={`${tableRow} ${record.id === focusId ? tableRowFocused : ""}`} key={record.id}><strong className={rowStrong}>{machineName(record.machine_id)}<small className={rowSub}>{technicianName(record.technician_id)}</small></strong><span>{record.problem}</span><span>{record.action_taken}</span><span className="flex items-center gap-1"><select className={select} value={record.status} disabled={!canEditRecord(record)} onChange={(event) => void changeStatus(record, event.target.value)} aria-label={`Status for ${machineName(record.machine_id)}`}>{MAINTENANCE_STATUSES.map((status) => <option value={status} key={status}>{MAINTENANCE_STATUS_LABELS[status]}</option>)}</select>{canEditRecord(record) && <button className={iconButton} onClick={() => openEdit(record)} aria-label="Edit maintenance record"><Pencil size={15} /></button>}{canDelete && <button className={`${iconButton} hover:!text-danger`} onClick={() => void remove(record)} aria-label="Delete maintenance record"><Trash2 size={15} /></button>}</span></div>)}{filtered.length === 0 && <div className={moduleEmpty}>No maintenance records match your search.</div>}</div>}
 
       {open && <div className={modalBackdrop}><form className={modalCard} onSubmit={save} noValidate><div className={modalHeader}><div><p className={eyebrow}>MAINTENANCE RECORD</p><h2 className={modalTitle}>{editing?.id ? "Edit maintenance" : "Log maintenance"}</h2></div><button type="button" className={iconButton} onClick={() => { setOpen(false); setEditing(null); }} aria-label="Close"><X size={17} /></button></div>
             {error && <div className={modalError} role="alert">{error}</div>}<div className={formGrid}><label className={modalLabel}>Machine<select className={modalControlRow} name="machine_id" defaultValue={formRecord.machine_id || selectableMachines[0]?.id} disabled={role !== "admin" && Boolean(editing?.id)} required>{selectableMachines.map((machine) => <option key={machine.id} value={machine.id}>{machine.machine_id}</option>)}</select></label><label className={modalLabel}>Technician{role === "admin" ? <select className={modalControlRow} name="technician_id" defaultValue={defaultTechnician} required>{profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.display_name} · {profile.role}</option>)}</select> : <input className={modalControlRow} name="technician_id" defaultValue={defaultTechnician} readOnly required />}</label><label className={`${modalLabel} ${formGridFull}`}>Problem<textarea className={`${modalControl} ${modalTextarea}`} name="problem" defaultValue={formRecord.problem} placeholder="What needs repair?" maxLength={2000} required /></label><label className={`${modalLabel} ${formGridFull}`}>Action taken<textarea className={`${modalControl} ${modalTextarea}`} name="action_taken" defaultValue={formRecord.action_taken} placeholder="What was done?" maxLength={2000} required /></label><label className={modalLabel}>Started at<input className={modalControlRow} name="started_at" type="datetime-local" defaultValue={toDateTimeLocal(formRecord.started_at) || toDateTimeLocal(new Date().toISOString())} required /></label><label className={modalLabel}>Status<select className={modalControlRow} name="status" defaultValue={formRecord.status}>{MAINTENANCE_STATUSES.map((status) => <option value={status} key={status}>{MAINTENANCE_STATUS_LABELS[status]}</option>)}</select></label></div><div className={modalActions}><button type="button" className={`${button} ${buttonSecondary}`} onClick={() => { setOpen(false); setEditing(null); }}>Cancel</button><button className={`${button} ${buttonPrimary}`} type="submit">Save maintenance</button></div></form></div>}

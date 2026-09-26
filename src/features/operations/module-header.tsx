@@ -7,6 +7,8 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
 import type { AppRole } from "@/lib/operations/types";
 import { ThemeToggle } from "./theme-toggle";
+import { NotificationBell } from "./notification-bell";
+import { useActiveAlarms } from "./use-active-alarms";
 import {
   brandCaption,
   brandMark,
@@ -25,6 +27,7 @@ import {
 export function ModuleHeader({ role }: { role?: AppRole | null }) {
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
+  const active = useActiveAlarms();
 
   async function signOut() {
     setSigningOut(true);
@@ -51,6 +54,10 @@ export function ModuleHeader({ role }: { role?: AppRole | null }) {
         <Link className={`${navLink} max-[760px]:hidden`} href="/requests">Requests</Link>
       </nav>
       <div className={topbarActions}>
+        {/* The bell is here as well as on the dashboard, so an active alarm is
+            visible from any module. It fetches its own short list of open alarms
+            rather than the dashboard's full dataset. */}
+        <NotificationBell alarms={active.alarms} machineName={active.machineName} />
         <ThemeToggle />
         {role && <span className={`${rolePill} ${rolePillTone[role] ?? ""}`}>{role}</span>}
         <button className={`${button} ${buttonSecondary} ${buttonSmall}`} type="button" onClick={() => void signOut()} disabled={signingOut}>

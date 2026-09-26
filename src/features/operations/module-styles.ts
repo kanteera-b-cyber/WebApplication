@@ -110,6 +110,19 @@ export const modalError = "rounded-[6px] bg-danger-soft px-[11px] py-[9px] text-
 
 export const moduleEmpty = "px-5 py-8 text-center text-xs text-[color:var(--color-faint)]";
 
+/**
+ * An informational strip, as opposed to moduleError which is a failure.
+ *
+ * Used when the page is showing something because of a link rather than because
+ * the user asked for it, so the reason is stated and can be dismissed.
+ */
+export const moduleNotice =
+  "mx-auto mb-3.5 flex items-center gap-2.5 rounded-[6px] border border-brand/30 bg-brand-soft px-[13px] py-[10px] text-[11px] text-[color:var(--color-on-brand-soft)]";
+
+/** The row a deep link pointed at, marked so it is findable in a long list. */
+export const tableRowFocused =
+  "bg-brand-soft outline outline-2 -outline-offset-2 outline-brand/60";
+
 export const moduleFootnote = "mx-auto mt-3.5 max-w-[1180px] text-[10px] text-muted";
 
 // A pale amber box does not survive a dark theme, so this uses the warn tokens
