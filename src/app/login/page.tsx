@@ -208,13 +208,19 @@ export default function LoginPage() {
   const isSignup = mode === "signup";
 
   const fieldClass =
-    "w-full rounded-[7px] border border-[#dce3eb] bg-surface px-3 py-[11px] text-xs text-ink outline-none focus:border-brand focus:shadow-[0_0_0_3px_#3478f615]";
+    "w-full rounded-[7px] border border-line bg-surface px-3 py-[11px] text-xs text-ink outline-none focus:border-brand focus:shadow-[0_0_0_3px_#3478f615]";
 
-  const labelClass = "grid gap-2 text-[11px] font-bold text-[#526174]";
+  const labelClass = "grid gap-2 text-[11px] font-bold text-muted";
 
   return (
     <main className="grid min-h-screen grid-cols-[1.05fr_.95fr] bg-surface max-[760px]:grid-cols-1">
-      <section className="relative flex flex-col overflow-hidden bg-[#102d4d] px-[8vw] py-[46px] text-white max-[760px]:min-h-[310px] max-[760px]:px-6 max-[760px]:py-7 after:absolute after:right-[-210px] after:bottom-[-150px] after:h-[480px] after:w-[480px] after:rounded-full after:border after:border-surface/12 after:shadow-[0_0_0_80px_#ffffff08,0_0_0_160px_#ffffff05]">
+      {/*
+        The brand panel keeps its own fixed navy palette in both themes, so the
+        hex values below are deliberate and are not theme tokens. It has to stay
+        dark: swapping it for bg-surface would turn the panel white in light mode
+        and lose the two-column contrast the login page is built around.
+      */}
+      <section className="relative flex flex-col overflow-hidden bg-[#102d4d] px-[8vw] py-[46px] text-white max-[760px]:min-h-[310px] max-[760px]:px-6 max-[760px]:py-7 after:absolute after:right-[-210px] after:bottom-[-150px] after:h-[480px] after:w-[480px] after:rounded-full after:border after:border-white/12 after:shadow-[0_0_0_80px_#ffffff08,0_0_0_160px_#ffffff05]">
         <div className="flex items-center gap-2.5 text-sm tracking-[1.8px]"><span className="grid h-[31px] w-[31px] place-items-center rounded-[9px] bg-brand text-white shadow-[0_5px_12px_#3478f633]"><Activity size={19} /></span><strong>FORGE<span className="text-[#65a0ff]">OPS</span></strong></div>
         <div className="relative z-1 my-auto max-[760px]:mt-[42px] max-[760px]:mb-5">
           <p className="mb-[3px] text-[9px] font-bold tracking-[1.4px] text-brand">PLANT 01 · OPERATIONS CONTROL</p>
@@ -232,7 +238,7 @@ export default function LoginPage() {
         <div className="w-[min(100%,360px)]">
           <p className="mb-[3px] text-[9px] font-bold tracking-[1px] text-[color:var(--color-faint)]">{isSignup ? "CREATE ACCOUNT" : "WELCOME BACK"}</p>
           <h2 className="my-2 text-[26px]">{isSignup ? "Create your account" : "Sign in to ForgeOps"}</h2>
-          <p className="mb-8 text-xs text-[#8996a5]">{isSignup ? "Choose the role for this workspace account." : "Enter your workspace credentials to continue."}</p>
+          <p className="mb-8 text-xs text-muted">{isSignup ? "Choose the role for this workspace account." : "Enter your workspace credentials to continue."}</p>
           <form onSubmit={handleSubmit} className="grid gap-[18px]">
             {isSignup && <label className={labelClass}>Full name<input className={fieldClass} value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Your name" autoComplete="name" minLength={2} maxLength={120} required /></label>}
             {isSignup && <label className={labelClass}>Role <span className="text-ink/40">/ Role</span><select className={fieldClass} value={selectedRole} onChange={(event) => setSelectedRole(event.target.value as AppRole)}><option value="technician">Technician</option><option value="admin">Admin</option><option value="viewer">Viewer (read-only)</option></select></label>}
@@ -250,9 +256,9 @@ export default function LoginPage() {
           <button className="mt-4 w-full border-0 bg-transparent text-[11px] font-bold text-brand hover:underline" type="button" onClick={() => changeMode(isSignup ? "login" : "signup")}>
             {isSignup ? "Already have an account? Sign in" : "Sign up / สมัครสมาชิก"}
           </button>
-          <p className="mt-[22px] text-center text-[10px] text-[#aab4c0]">Access is managed by your system administrator.</p>
+          <p className="mt-[22px] text-center text-[10px] text-faint">Access is managed by your system administrator.</p>
         </div>
-        <span className="absolute bottom-[30px] text-[8px] tracking-[1.1px] text-[#b0bbc7] max-[760px]:bottom-5">FORGEOPS · ALARM &amp; MAINTENANCE MANAGEMENT</span>
+        <span className="absolute bottom-[30px] text-[8px] tracking-[1.1px] text-faint max-[760px]:bottom-5">FORGEOPS · ALARM &amp; MAINTENANCE MANAGEMENT</span>
       </section>
     </main>
   );

@@ -72,7 +72,7 @@ export function NotificationBell({ alarms, machineName }: { alarms: Alarm[]; mac
           </div>
 
           {permission !== "granted" && permission !== "unsupported" && (
-            <button type="button" onClick={() => void askPermission()} className="mb-2 w-full rounded-[6px] border border-line bg-bg-sunken px-2 py-1.5 text-left text-[9px] text-muted hover:text-ink">
+            <button type="button" onClick={() => void askPermission()} className="mb-2 w-full rounded-[6px] border border-line bg-sunken px-2 py-1.5 text-left text-[9px] text-muted hover:text-ink">
               Enable desktop notifications
             </button>
           )}

@@ -335,8 +335,8 @@ export function DashboardView() {
           </div>
 
           <section className={metricGrid} aria-label="ภาพรวมโรงงาน">
-            <MetricCard label="Total machines" value={String(summary.totalMachines)} delta={plural(summary.running, "running")} note={dataState === "fallback" ? "data unavailable · check Supabase" : "live from Supabase"} icon={<Bot size={18} />} tone="blue" />
-            <MetricCard label="Active alarms" value={String(summary.activeAlarms)} delta={`${summary.alarm} critical`} note="need attention" icon={<AlertTriangle size={18} />} tone="orange" alert />
+            <MetricCard label="Total machines" value={String(summary.totalMachines)} delta={`${summary.running} running`} note={dataState === "fallback" ? "data unavailable · check Supabase" : "live from Supabase"} icon={<Bot size={18} />} tone="blue" />
+            <MetricCard label="Active alarms" value={String(summary.activeAlarms)} delta={`${plural(summary.alarm, "machine", "machines")} critical`} note="need attention" icon={<AlertTriangle size={18} />} tone="orange" alert />
             <MetricCard label="Maintenance records" value={String(summary.maintenanceRecords).padStart(2, "0")} delta={plural(summary.maintenance, "machine")} note="scheduled work" icon={<Wrench size={18} />} tone="green" />
             <MetricCard label="Running rate" value={`${uptime}%`} delta={plural(summary.totalMachines, "machine")} note="current machine state" icon={<CircleGauge size={18} />} tone="violet" />
           </section>
