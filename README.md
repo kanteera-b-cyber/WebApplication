@@ -126,6 +126,8 @@ Web application สำหรับทีมงาน Automation ในโรง�
 
 ### 4.1 ตารางข้อมูล
 
+> เอกสารสคีมาฉบับเต็มพร้อม ERD, Foreign Key, RLS Policy, Trigger และฟังก์ชัน อยู่ที่ [`DATABASE_SCHEMA.md`](./DATABASE_SCHEMA.md)
+
 | ตาราง | คอลัมน์ | ความสัมพันธ์ |
 | --- | --- | --- |
 | `profiles` | `id`, `display_name`, `role` | 1 profile ต่อผู้ใช้ Supabase Auth |
@@ -349,7 +351,7 @@ Workflow ที่ `.github/workflows/ci.yml` ทำงานอัตโนม�
 
 - [x] URL ของ GitHub repository
 - [ ] URL ของระบบที่ deploy บน Vercel
-- [x] สคีมาฐานข้อมูลบน Supabase (migration ครบ 5 ไฟล์)
+- [x] สคีมาฐานข้อมูลบน Supabase — [migration 5 ไฟล์](./supabase/migrations) และ [เอกสารสคีมา](./DATABASE_SCHEMA.md)
 - [x] มีบัญชีทดสอบทั้ง Admin และ Technician
 - [ ] อัปเดต README ด้วย URL จริงของ Vercel
 - [x] จับภาพหน้าจอระบบแล้ว
