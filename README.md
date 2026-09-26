@@ -302,7 +302,11 @@ Workflow ที่ `.github/workflows/ci.yml` ทำงานอัตโนม�
 
 **GitHub repository:** https://github.com/kanteera-b-cyber/WebApplication
 
-**Vercel URL:** `[กรอก URL ของระบบที่ deploy แล้ว ก่อนส่งงาน]`
+**Vercel URL:** https://web-application-psi-tawny.vercel.app
+
+ระบบที่ deploy แล้วเปิดใช้งานได้จริง ตรวจสอบแล้วว่า `/login` ตอบ 200, หน้าอื่น redirect ไป `/login` เมื่อยังไม่ล็อกอิน, `/api/dashboard` ตอบ 401, Tailwind CSS ให้ครบ 446 กฎ และ client bundle เชื่อมต่อ Supabase project ถูกต้อง
+
+> เปิด **Settings → Deployment Protection** แล้วปิด **Vercel Authentication** ไว้ เพื่อให้ผู้ตรวจเปิด URL นี้ได้โดยไม่ต้องล็อกอิน
 
 ### 7.1 การจัดการสไตล์ด้วย Tailwind CSS
 
@@ -350,9 +354,9 @@ Workflow ที่ `.github/workflows/ci.yml` ทำงานอัตโนม�
 ดูรายละเอียดเพิ่มเติมได้ที่ [`SUBMISSION_CHECKLIST.md`](./SUBMISSION_CHECKLIST.md)
 
 - [x] URL ของ GitHub repository
-- [ ] URL ของระบบที่ deploy บน Vercel
+- [x] URL ของระบบที่ deploy บน Vercel — https://web-application-psi-tawny.vercel.app
 - [x] สคีมาฐานข้อมูลบน Supabase — [migration 5 ไฟล์](./supabase/migrations) และ [เอกสารสคีมา](./DATABASE_SCHEMA.md)
 - [x] มีบัญชีทดสอบทั้ง Admin และ Technician
-- [ ] อัปเดต README ด้วย URL จริงของ Vercel
+- [x] อัปเดต README ด้วย URL จริงของ Vercel
 - [x] จับภาพหน้าจอระบบแล้ว
 - [x] จัดทำรายงานสรุปการใช้ AI ในการพัฒนาแล้ว
