@@ -72,10 +72,11 @@ Run the migrations in Supabase SQL Editor in order:
 2. `supabase/migrations/002_assignment_hardening.sql`
 3. `supabase/migrations/003_signup_role.sql`
 4. `supabase/migrations/004_machine_soft_delete.sql`
+5. `supabase/migrations/005_signup_role_enforcement.sql`
 
 Optional local demo data is available in `supabase/seed.sql`. Run it after creating the first Admin profile. If `001_initial_schema.sql` was already applied before this update, run only `002_assignment_hardening.sql`.
 
-Note that `003_signup_role.sql` only replaces the `public.handle_new_user()` function; the `on_auth_user_created` trigger itself is created by `001_initial_schema.sql`. Both must be applied for the signup role to be honoured.
+Note that `003_signup_role.sql` only replaces the `public.handle_new_user()` function; the `on_auth_user_created` trigger itself is created by `001_initial_schema.sql`. `005_signup_role_enforcement.sql` re-applies the function *and* re-creates the trigger, so it repairs a project where the deployed function was an older revision that hardcoded the `technician` role. See [Sign-up always returns Technician](#sign-up-always-returns-technician).
 
 Tables and relationships:
 
@@ -115,6 +116,31 @@ Never put a Supabase Service Role Key in a `NEXT_PUBLIC_*` variable or in client
 Supabase Dashboard → **Authentication → Sign In / Providers → Email** → turn off **Confirm email**.
 
 Without this step the sign-up form cannot complete on a new project, because Supabase's built-in mail service has a small hourly quota and the confirmation email is never delivered. See [Login troubleshooting](#login-troubleshooting).
+
+### Sign-up always returns Technician
+
+**Symptom:** selecting **Admin** on the sign-up form creates the account, but the app then shows **Technician** and the Admin-only controls stay hidden.
+
+**Confirm it** with this query in the Supabase SQL Editor. `requested_role` says `admin` while `role` says `technician`:
+
+```sql
+select u.email, p.role, u.raw_user_meta_data ->> 'role' as requested_role
+from auth.users u
+join public.profiles p on p.id = u.id
+order by u.created_at desc;
+```
+
+**Cause:** the deployed `public.handle_new_user()` is an older revision that hardcodes `'technician'` and never reads the role from `raw_user_meta_data`. Migration `003` only replaces that function and assumes the trigger was wired up by `001`, so the fix is easy to miss.
+
+**Fix:** run `supabase/migrations/005_signup_role_enforcement.sql` in the SQL Editor, then sign up again. It is idempotent, so re-running it is safe.
+
+**Promote an existing account.** A profile created before the fix keeps its old role, and an account created directly in the Supabase dashboard always becomes Technician because the dashboard sends no role metadata. Run this with the user's UUID from Authentication → Users:
+
+```sql
+update public.profiles
+set role = 'admin'
+where id = 'AUTH-USER-UUID-HERE';
+```
 
 ### Create the first Admin
 

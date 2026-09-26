@@ -209,9 +209,11 @@ export default function LoginPage() {
   const fieldClass =
     "w-full rounded-[7px] border border-[#dce3eb] bg-white px-3 py-[11px] text-xs text-ink outline-none focus:border-brand focus:shadow-[0_0_0_3px_#3478f615]";
 
+  const labelClass = "grid gap-2 text-[11px] font-bold text-[#526174]";
+
   return (
-    <main className="grid min-h-screen grid-cols-1 bg-white max-[760px]:grid-cols-1">
-      <section className="relative flex flex-col overflow-hidden bg-[#102d4d] px-[8vw] py-[46px] text-white max-[760px]:min-h-[310px] max-[760px]:px-6 max-[760px]:py-7 after:absolute after:right-[-210px] after:bottom-[-150px] after:h-[480px] after:w-[480px] after:rounded-full after:border after:border-white/12 after:shadow-[0_0_0_80px_#ffffff08,0_0_0_160px_#ffffff05] max-[1100px]:col-span-1 min-[761px]:col-span-1">
+    <main className="grid min-h-screen grid-cols-[1.05fr_.95fr] bg-white max-[760px]:grid-cols-1">
+      <section className="relative flex flex-col overflow-hidden bg-[#102d4d] px-[8vw] py-[46px] text-white max-[760px]:min-h-[310px] max-[760px]:px-6 max-[760px]:py-7 after:absolute after:right-[-210px] after:bottom-[-150px] after:h-[480px] after:w-[480px] after:rounded-full after:border after:border-white/12 after:shadow-[0_0_0_80px_#ffffff08,0_0_0_160px_#ffffff05]">
         <div className="flex items-center gap-2.5 text-sm tracking-[1.8px]"><span className="grid h-[31px] w-[31px] place-items-center rounded-[9px] bg-brand text-white shadow-[0_5px_12px_#3478f633]"><Activity size={19} /></span><strong>FORGE<span className="text-[#65a0ff]">OPS</span></strong></div>
         <div className="relative z-1 my-auto max-[760px]:mt-[42px] max-[760px]:mb-5">
           <p className="mb-[3px] text-[9px] font-bold tracking-[1.4px] text-brand">PLANT 01 · OPERATIONS CONTROL</p>
@@ -226,12 +228,12 @@ export default function LoginPage() {
           <h2 className="my-2 text-[26px]">{isSignup ? "Create your account" : "Sign in to ForgeOps"}</h2>
           <p className="mb-8 text-xs text-[#8996a5]">{isSignup ? "Choose the role for this workspace account." : "Enter your workspace credentials to continue."}</p>
           <form onSubmit={handleSubmit} className="grid gap-[18px]">
-            {isSignup && <label className="grid gap-2 text-[11px] font-bold text-[#526174]">Full name<input className={fieldClass} value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Your name" autoComplete="name" minLength={2} maxLength={120} required /></label>}
-            {isSignup && <label className="grid gap-2 text-[11px] font-bold text-[#526174]">Role<select className={fieldClass} value={selectedRole} onChange={(event) => setSelectedRole(event.target.value as AppRole)}><option value="technician">Technician</option><option value="admin">Admin</option></select></label>}
-            <label className="grid gap-2 text-[11px] font-bold text-[#526174]">Email address<input className={fieldClass} type="email" inputMode="email" spellCheck={false} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@company.com" autoComplete="email" required /></label>
-            <label className="grid gap-2 text-[11px] font-bold text-[#526174]">Password<input className={fieldClass} type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="••••••••" autoComplete={isSignup ? "new-password" : "current-password"} minLength={6} required /></label>
+            {isSignup && <label className={labelClass}>Full name<input className={fieldClass} value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Your name" autoComplete="name" minLength={2} maxLength={120} required /></label>}
+            {isSignup && <label className={labelClass}>Role<select className={fieldClass} value={selectedRole} onChange={(event) => setSelectedRole(event.target.value as AppRole)}><option value="technician">Technician</option><option value="admin">Admin</option></select></label>}
+            <label className={labelClass}>Email address<input className={fieldClass} type="email" inputMode="email" spellCheck={false} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@company.com" autoComplete="email" required /></label>
+            <label className={labelClass}>Password<input className={fieldClass} type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="••••••••" autoComplete={isSignup ? "new-password" : "current-password"} minLength={6} required /></label>
             {isSignup && selectedRole === "admin" && <p className="mt-[14px] text-[10px] text-[#8b98a7]">Admin accounts can manage all system records. Use this role only for authorized administrators.</p>}
-            {isSignup && <label className="grid gap-2 text-[11px] font-bold text-[#526174]">Confirm password<input className={fieldClass} type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="••••••••" autoComplete="new-password" minLength={6} required /></label>}
+            {isSignup && <label className={labelClass}>Confirm password<input className={fieldClass} type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="••••••••" autoComplete="new-password" minLength={6} required /></label>}
             {error && <div role="alert" className="-my-[3px] rounded-[5px] bg-danger-soft p-2 text-[10px] text-danger"><p>{error.th}</p><p className="mt-1 text-[9px] leading-[1.5] opacity-70">{error.en}</p></div>}
             {notice && <div role="status" className="-my-[3px] text-[11px] leading-[1.5] text-[#2d7a5a]"><p>{notice.th}</p><p className="mt-1 text-[9px] leading-[1.5] opacity-70">{notice.en}</p></div>}
             <button className="mt-[5px] flex w-full items-center justify-center gap-[7px] rounded-[7px] border border-brand bg-brand px-3 py-3 text-[11px] font-bold text-white shadow-[0_4px_10px_#3478f633] disabled:cursor-wait disabled:opacity-70" disabled={loading}>
