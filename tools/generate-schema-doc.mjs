@@ -256,7 +256,15 @@ for (const f of functions) {
   out.push(`| ${inline(f.name)} | ${inline(f.returns)} | ${inline(f.language)} | ${f.security} |`);
 }
 out.push(``);
-out.push(`ฟังก์ชันที่ทำงานแทนผู้เรียก (\`security definer\`) คือ \`is_admin()\` \`can_write()\` \`handle_new_user()\` \`set_record_actor()\` และ \`write_audit_log()\` ทั้งหมดตั้ง \`search_path = public\` เพื่อไม่ให้มีการเรียกฟังก์ชันของ schema อื่นผ่านชื่อกำกวม`);
+out.push(`ฟังก์ชันที่ทำงานแทนผู้เรียก (\`security definer\`) คือ \`is_admin()\` \`can_write()\` \`handle_new_user()\` \`set_record_actor()\` \`write_audit_log()\` \`audit_record_id()\` และ \`protect_profile_role()\` ทั้งหมดตั้ง \`search_path = public\` เพื่อไม่ให้มีการเรียกฟังก์ชันของ schema อื่นผ่านชื่อกำกวม`);
+out.push(``);
+out.push(`### ฟังก์ชันที่กันการเลื่อนสิทธิ์ตัวเอง`);
+out.push(``);
+out.push(`\`protect_profile_role()\` ทำงานก่อน \`UPDATE\` บน \`profiles\` และ**ปฏิเสธ**คำขอเปลี่ยน \`role\` เว้นแต่ผู้เรียกเป็น Admin`);
+out.push(``);
+out.push(`จำเป็นเพราะ policy \`users update own profile\` อนุญาตให้ผู้ใช้แก้โปรไฟล์ของตัวเองได้ แต่ \`role\` อยู่ในแถวเดียวกัน และ RLS ของ PostgreSQL **เลือกได้แค่ระดับแถว ไม่ได้ระดับคอลัมน์** ถ้าไม่มี trigger กันไว้ ผู้ใช้ทั่วไปจะตั้ง \`role = 'admin'\` ให้ตัวเองได้`);
+out.push(``);
+out.push(`การตรวจสอบด้วยการยิงคำขอจริง: ช่างเทคนิคตั้งชื่อตัวเองได้ · ตั้งชื่อบัญชีอื่นไม่ได้ · ตั้ง \`role\` ของตัวเองไม่ได้ (ทั้งจาก technician และ viewer) · Admin ยังจัดการ Role ได้ตามปกติ`);
 out.push(``);
 
 out.push(`## ข้อมูลปัจจุบันในระบบ`);

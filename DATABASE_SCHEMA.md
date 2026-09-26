@@ -33,11 +33,11 @@
 | ตาราง | 6 |
 | Enum type | 3 |
 | Foreign key | 10 |
-| Check constraint | 18 |
+| Check constraint | 31 |
 | Index | 17 |
-| RLS policy | 21 |
-| Trigger | 11 |
-| ฟังก์ชัน | 8 |
+| RLS policy | 22 |
+| Trigger | 13 |
+| ฟังก์ชัน | 9 |
 
 ### Enum type
 
@@ -170,24 +170,37 @@
 
 | ตาราง | ชื่อ | นิยาม |
 | --- | --- | --- |
+| `alarms` | `alarms_action_taken_length` | `CHECK (((action_taken IS NULL) OR (length(action_taken) <= 2000)))` |
+| `alarms` | `alarms_cause_length` | `CHECK (((cause IS NULL) OR (length(cause) <= 2000)))` |
+| `alarms` | `alarms_code_length` | `CHECK ((length(alarm_code) <= 80))` |
 | `alarms` | `alarms_code_not_blank` | `CHECK ((length(btrim(alarm_code)) > 0))` |
+| `alarms` | `alarms_description_length` | `CHECK ((length(description) <= 1000))` |
 | `alarms` | `alarms_description_not_blank` | `CHECK ((length(btrim(description)) > 0))` |
 | `alarms` | `closed_alarm_has_resolution` | `CHECK (((status <> 'closed'::alarm_status) OR ((length(btrim(COALESCE(cause, ''::text))) > 0) AND (length(btrim(COALESCE(action_taken, ''::text))) > 0) AND (closed_by IS NOT NULL) AND (closed_at IS NOT NULL))))` |
 | `audit_log` | `audit_log_action_check` | `CHECK ((action = ANY (ARRAY['insert'::text, 'update'::text, 'delete'::text])))` |
 | `change_requests` | `change_requests_description_check` | `CHECK ((length(btrim(description)) > 0))` |
+| `change_requests` | `change_requests_description_length` | `CHECK ((length(description) <= 2000))` |
+| `change_requests` | `change_requests_review_note_length` | `CHECK (((review_note IS NULL) OR (length(review_note) <= 2000)))` |
 | `change_requests` | `change_requests_status_check` | `CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))` |
 | `change_requests` | `change_requests_title_check` | `CHECK (((length(btrim(title)) >= 3) AND (length(btrim(title)) <= 120)))` |
 | `machines` | `archived_machine_is_stopped` | `CHECK (((NOT is_archived) OR (status = 'stop'::machine_status)))` |
+| `machines` | `machines_location_length` | `CHECK ((length(location) <= 160))` |
 | `machines` | `machines_location_not_blank` | `CHECK ((length(btrim(location)) > 0))` |
 | `machines` | `machines_machine_id_format` | `CHECK ((machine_id ~ '^[A-Za-z0-9][A-Za-z0-9._-]{1,31}$'::text))` |
 | `machines` | `machines_machine_id_not_blank` | `CHECK (((length(btrim(machine_id)) >= 2) AND (length(btrim(machine_id)) <= 32)))` |
+| `machines` | `machines_machine_name_length` | `CHECK ((length(machine_name) <= 120))` |
 | `machines` | `machines_machine_name_not_blank` | `CHECK ((length(btrim(machine_name)) > 0))` |
+| `machines` | `machines_machine_type_length` | `CHECK ((length(machine_type) <= 80))` |
 | `machines` | `machines_machine_type_not_blank` | `CHECK ((length(btrim(machine_type)) > 0))` |
+| `maintenance_records` | `maintenance_action_length` | `CHECK ((length(action_taken) <= 2000))` |
 | `maintenance_records` | `maintenance_action_not_blank` | `CHECK ((length(btrim(action_taken)) > 0))` |
 | `maintenance_records` | `maintenance_dates_valid` | `CHECK (((completed_at IS NULL) OR (completed_at >= started_at)))` |
+| `maintenance_records` | `maintenance_problem_length` | `CHECK ((length(problem) <= 2000))` |
 | `maintenance_records` | `maintenance_problem_not_blank` | `CHECK ((length(btrim(problem)) > 0))` |
 | `maintenance_records` | `maintenance_records_status_check` | `CHECK ((status = ANY (ARRAY['in_progress'::text, 'waiting_part'::text, 'completed'::text])))` |
 | `maintenance_records` | `maintenance_waiting_part_not_completed` | `CHECK (((status <> 'waiting_part'::text) OR (completed_at IS NULL)))` |
+| `profiles` | `profiles_display_name_length` | `CHECK ((length(display_name) <= 120))` |
+| `profiles` | `profiles_role_length` | `CHECK ((role = ANY (ARRAY['admin'::app_role, 'technician'::app_role, 'viewer'::app_role])))` |
 
 ## Index
 
@@ -240,6 +253,7 @@
 | `profiles` | `admins manage profiles` | `ALL` | `{authenticated}` | `is_admin()` | `is_admin()` |
 | `profiles` | `admins read profiles` | `SELECT` | `{authenticated}` | `is_admin()` | `—` |
 | `profiles` | `users read own profile` | `SELECT` | `{authenticated}` | `(id = auth.uid())` | `—` |
+| `profiles` | `users update own profile` | `UPDATE` | `{authenticated}` | `(id = auth.uid())` | `(id = auth.uid())` |
 
 **หมายเหตุ:** `audit_log` มีเพียง policy ระบุ `for select` เท่านั้น ไม่มี policy สำหรับ insert แม้แต่ตัวเดียว เพราะรายการต้องถูกเขียนโดย trigger ซึ่งรันเป็น `security definer` เท่านั้น ผลคือ client ไม่สามารถสร้าง แก้ไข หรือลบรายการ audit ได้เลย แม้จะล็อกอินด้วย role ใดก็ตาม
 
@@ -250,12 +264,14 @@
 | `alarms` | `alarms_actor` | BEFORE |
 | `alarms` | `alarms_audit` | AFTER |
 | `alarms` | `alarms_updated_at` | BEFORE |
+| `change_requests` | `change_requests_audit` | AFTER |
 | `machines` | `machines_archive_actor` | BEFORE |
 | `machines` | `machines_audit` | AFTER |
 | `machines` | `machines_updated_at` | BEFORE |
 | `maintenance_records` | `maintenance_actor` | BEFORE |
 | `maintenance_records` | `maintenance_audit` | AFTER |
 | `maintenance_records` | `maintenance_updated_at` | BEFORE |
+| `profiles` | `profiles_protect_role` | BEFORE |
 | `profiles` | `profiles_updated_at` | BEFORE |
 | `users` | `on_auth_user_created` | AFTER |
 
@@ -267,23 +283,32 @@
 | `can_write` | `boolean` | `sql` | SECURITY DEFINER |
 | `handle_new_user` | `trigger` | `plpgsql` | SECURITY DEFINER |
 | `is_admin` | `boolean` | `sql` | SECURITY DEFINER |
+| `protect_profile_role` | `trigger` | `plpgsql` | SECURITY DEFINER |
 | `set_machine_archive_actor` | `trigger` | `plpgsql` | SECURITY DEFINER |
 | `set_record_actor` | `trigger` | `plpgsql` | SECURITY DEFINER |
 | `set_updated_at` | `trigger` | `plpgsql` | SECURITY INVOKER |
 | `write_audit_log` | `trigger` | `plpgsql` | SECURITY DEFINER |
 
-ฟังก์ชันที่ทำงานแทนผู้เรียก (`security definer`) คือ `is_admin()` `can_write()` `handle_new_user()` `set_record_actor()` และ `write_audit_log()` ทั้งหมดตั้ง `search_path = public` เพื่อไม่ให้มีการเรียกฟังก์ชันของ schema อื่นผ่านชื่อกำกวม
+ฟังก์ชันที่ทำงานแทนผู้เรียก (`security definer`) คือ `is_admin()` `can_write()` `handle_new_user()` `set_record_actor()` `write_audit_log()` `audit_record_id()` และ `protect_profile_role()` ทั้งหมดตั้ง `search_path = public` เพื่อไม่ให้มีการเรียกฟังก์ชันของ schema อื่นผ่านชื่อกำกวม
+
+### ฟังก์ชันที่กันการเลื่อนสิทธิ์ตัวเอง
+
+`protect_profile_role()` ทำงานก่อน `UPDATE` บน `profiles` และ**ปฏิเสธ**คำขอเปลี่ยน `role` เว้นแต่ผู้เรียกเป็น Admin
+
+จำเป็นเพราะ policy `users update own profile` อนุญาตให้ผู้ใช้แก้โปรไฟล์ของตัวเองได้ แต่ `role` อยู่ในแถวเดียวกัน และ RLS ของ PostgreSQL **เลือกได้แค่ระดับแถว ไม่ได้ระดับคอลัมน์** ถ้าไม่มี trigger กันไว้ ผู้ใช้ทั่วไปจะตั้ง `role = 'admin'` ให้ตัวเองได้
+
+การตรวจสอบด้วยการยิงคำขอจริง: ช่างเทคนิคตั้งชื่อตัวเองได้ · ตั้งชื่อบัญชีอื่นไม่ได้ · ตั้ง `role` ของตัวเองไม่ได้ (ทั้งจาก technician และ viewer) · Admin ยังจัดการ Role ได้ตามปกติ
 
 ## ข้อมูลปัจจุบันในระบบ
 
 | ตาราง | แถว |
 | --- | --- |
-| `profiles` | 6 |
+| `profiles` | 13 |
 | `machines` | 4 |
 | `alarms` | 9 |
 | `maintenance_records` | 3 |
-| `audit_log` | 51 |
-| `change_requests` | 0 |
+| `audit_log` | 172 |
+| `change_requests` | 6 |
 
 ## วิธีดูสคีมาด้วยตนเอง
 

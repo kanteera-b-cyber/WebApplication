@@ -126,11 +126,58 @@ Things AI got wrong, and what checking the running system caught.
 - **One script of mine contained a mistyped project reference** and returned a
   confidently-worded 404 for a project that did not exist. It cost a long detour before
   a byte-level diff of the two files found the transposed characters.
-- **Maximum lengths are enforced in the browser, not the database.** A direct PostgREST
-  call can write a longer string than the form allows. The required-field and enum rules
-  are enforced by constraints, but length rules are not.
-- **The dashboard time range only filters the alarm queue**, not the metric cards or the
-  donut, which always show everything. The README now says so.
-- **Dates in seed data are relative to the moment the seed runs** (`now() - interval ...`),
-  so a seeded project shows a fresh week of history whenever it is set up, and alarms on
-  an archived machine show as "Unknown machine" in the dashboard queue.
+- **A migration was committed but never applied.** `009` attached the audit trigger to
+  `change_requests`; the repository had it and the running database did not, so three
+  statements in the documentation were untrue. Found by re-running the requirement checks
+  against the live project rather than trusting that a committed migration had been
+  applied anywhere.
+- **My own migration script broke six class names.** Replacing a colour literal inside
+  `bg-[#f5f8fb]` left the existing `bg-` prefix in place and produced `bg-bg-sunken`,
+  which Tailwind does not recognise, so those surfaces would have lost their background
+  silently.
+- **The settings page queried before the session resolved**, building the filter `id=eq.`
+  with an empty value and taking a 400 on every visit. The page looked correct because the
+  name loaded a moment later. Found by logging the URL of every 4xx while driving the
+  deployed site, not by reading the code.
+- **The CSV export wrote raw uuids in the machine column** for alarms and maintenance,
+  which means nothing to whoever opens the file. It carries the machine code now.
+- **The reports page had no filters at all**, and was a summary sentence with a button.
+
+### Checks that were themselves wrong
+
+The pattern recurred often enough to be worth recording, because each one produced a
+failure that had nothing to do with the code:
+
+- A unique violation returns HTTP 409 with `23505` in the body, not 23505 as the status.
+- Row Level Security drops a refused write silently and answers 200 or 204. A status
+  assertion would pass a write that never happened and fail one that was correctly
+  blocked, so the row has to be read back.
+- `set_record_actor()` sets `completed_at` to null unless the status is `completed`, so a
+  completion time supplied alongside `waiting_part` is discarded rather than rejected. The
+  end state is correct and the mechanism is not the obvious one.
+- PostgREST reports a check-constraint violation as code `21000`.
+- A machine code is printed in two cells of a report row, so counting occurrences is not
+  counting rows.
+- A retired machine is correctly absent from a list whose scope is Active, so asserting it
+  is "still listed" without switching the scope proves nothing.
+- A capitalised badge does not match a lowercase pattern.
+
+## 6. Deliberate design decisions
+
+Not oversights, and not limitations.
+
+- **A Technician may create an alarm.** The assignment grants a Technician "change Alarm
+  status" and an Admin "manage Alarm", so creating is not asked for. It is allowed because
+  a technician standing at the machine is normally the one who logs the alarm. The policy is
+  `authenticated users create alarms`; tightening it is a one-line change and the
+  trade-off is written up in `README.md` section 3.1.
+- **The seed dates its records relative to the moment it runs.** A fixed date would mean a
+  project installed next month shows a fortnight of history entirely in the past and an
+  empty dashboard. A fresh install shows a current week instead.
+- **A Viewer may raise a change request even though it may not write factory data.**
+  Restricting requests to write roles would defeat the purpose of a request workflow,
+  where the read-only users are often the ones who notice a gap. The integration suite
+  found this asymmetry and it is now asserted.
+- **Machine status is not filtered by the dashboard time range.** A machine's status is a
+  fact about right now, so scoping it by time would be misleading. Everything that is a
+  matter of record is scoped, and the filter strip says what it is showing.

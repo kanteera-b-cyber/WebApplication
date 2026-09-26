@@ -104,30 +104,37 @@ Web application สำหรับทีมงาน Automation ในโรง�
 | Alarms | ค้นข้าความ (เครื่อง / code / รายละเอียด) + สถานะ | 2 |
 | Maintenance | ค้นข้อความ (ปัญหา / งานที่ทำ / เครื่อง / ช่าง) + สถานะ (รวม Waiting part) | 2 |
 | Dashboard | ค้นข้อความ + ช่วงเวลา 24 ชั่วโมง / 7 วัน | 2 |
+| Reports | ค้นข้อความ + ชนิดข้อมูล + เครื่องจักร + สถานะ + ช่วงเวลา | 5 |
 | Audit | ตารางที่บันทึก + ประเภทการกระทำ (insert / update / delete) | 2 |
 | History | เลือกเครื่องจักร | 1 |
 
 ครอบคลุมเป้าหมายการค้นหาครบทั้ง 5 หัวข้อตามโจทย์ ได้แก่ Machine, Status, Alarm Code, Technician และ Date
 
-ข้อจำกัดที่ควรรู้: ช่วงเวลาและช่องค้นหาบน Dashboard มีผลกับ**คิวเหตุแจ้งเตือน**เท่านั้น ไม่ได้กรองการ์ดตัวเลขหรือกราฟ donut ซึ่งแสดงภาพรวมทั้งหมดเสมอ ส่วนหน้า Reports ยังไม่มีตัวกรอง เป็นหน้าสรุปและส่งออก CSV
+**ขอบเขตของตัวกรองบน Dashboard:** ช่วงเวลาและช่องค้นหามีผลกับทุกอย่างที่เป็น "เรื่องที่เกิดขึ้น" ได้แก่ ตัวเลข Alarm, คิวเหตุแจ้งเตือน, กราฟแท่งรายวัน และอัตราการปิดงานบำรุงรักษา แต่**ไม่กรองจำนวนเครื่องจักรตามสถานะ** เพราะสถานะของเครื่องเป็นข้อมูล "ตอนนี้" ไม่ใช่ช่วงเวลา — ถ้ากรองตามเวลาแล้วสถานะที่เห็นจะทำให้เข้าใจผิดว่าเครื่องหยุดทำงานในช่วงนั้น
 
 ### 3.6 Dashboard
 
 - แสดงจำนวนเครื่องจักรทั้งหมด (การ์ด "Total machines" และตัวเลขกลาง donut)
 - แสดงจำนวนเครื่องจักรแยกตามสถานะ Running, Stop, Alarm และ Maintenance (legend ของกราฟ donut พิมพ์จำนวนแต่ละสถานะ)
-- แสดงจำนวน Alarm ที่ยัง active และจำนวนงาน Maintenance
-- สรุปข้อมูลเป็นกราฟได้ ได้แก่ กราฟ donut แหวนสถานะเครื่องจักร, คิวเหตุแจ้งเตือน, อัตราการทำงานเครื่องจักร และแถบสรุปอัตราการปิดงานบำรุงรักษา
+- แสดงจำนวน Alarm ที่ยัง active และจำนวนงาน Maintenance โดยนับเฉพาะที่อยู่ในช่วงเวลาที่เลือก
+- สรุปข้อมูลเป็นกราฟได้ ได้แก่ กราฟ donut แหวนสถานะเครื่องจักร, คิวเหตุแจ้งเตือน, กราฟแท่งจำนวน Alarm รายวัน 7 วัน และแถบสรุปอัตราการปิดงานบำรุงรักษา
+- ช่องค้นหาและตัวเลือกช่วงเวลา (24 ชม. / 7 วัน) มีผลจริงกับตัวเลข Alarm, คิวเหตุแจ้งเตือน, กราฟ และอัตราการปิดงาน ไม่ใช่แค่เปลี่ยนป้ายบอกช่วงเวลา
+- คอลัมน์ "Machine health" แสดง **จำนวน Alarm ที่ยังค้างของแต่ละเครื่อง** นับจากข้อมูลจริง ไม่ใช่ค่าคะแนนที่ตั้งขึ้น
 - ข้อมูลทั้งหมดมาจาก route `/api/dashboard` ที่ต้องผ่านการยืนยันตัวตนก่อน
-- หน้า Reports ส่งออกข้อมูล Machine, Alarm และ Maintenance ปัจจุบันเป็นไฟล์ CSV
+- หน้า Reports รวมข้อมูลทั้งสามชนิดเป็นตารางเดียว กรองได้ 5 เงื่อนไข และส่งออก CSV เฉพาะแถวที่แสดงอยู่
 
 ### 3.7 Input Validation
 
 - ช่องข้อมูลสำคัญห้ามว่าง — บังคับด้วย `not null` และ check constraint `length(btrim(...)) > 0` บนคอลัมน์ข้อความทุกคอลัมน์
 - Machine ID ห้ามซ้ำ — unique index `machines_machine_id_lower_unique` บน `lower(machine_id)` และซ้ำแบบตัวพิมพ์ต่างกันก็ถูกปฏิเสธเช่นกัน
 - รูปแบบข้อมูลถูกต้อง — Machine ID ต้องตรง regex `^[A-Za-z0-9][A-Za-z0-9._-]{1,31}$` และค่าของ Status ต้องเป็น enum ที่กำหนดไว้เท่านั้น
-- แสดงข้อความแจ้งเตือนเมื่อข้อมูลไม่ถูกต้อง — ฟังก์ชัน `describeWriteError` แปลงรหัส error ของ Postgres แต่ละแบบเป็นข้อความที่ระบุวิธีแก้ได้ แสดงผ่าน `role="alert"`
+- **ความยาวสูงสุดบังคับที่ฐานข้อมูล ไม่ใช่แค่ที่เบราว์เซอร์** — migration `010` เพิ่ม check constraint ให้ทุกคอลัมน์ข้อความ (Machine Name ≤ 120, Location ≤ 160, Description ≤ 1000 และอื่น ๆ) ยิง REST API ตรง ๆ เลยก็เขียนค่าที่ยาวเกินไม่ได้
+- แสดงข้อความแจ้งเตือนเมื่อข้อมูลไม่ถูกต้อง — ฟังก์ชัน `describeWriteError` ใน `src/lib/operations/validation.ts` แปลงรหัส error ของ Postgres แต่ละแบบเป็นข้อความ **ภาษาไทยคู่ภาษาอังกฤษ** ที่ระบุวิธีแก้ได้ ใช้ร่วมกันทั้งสามโมดูล และแสดงผ่าน `role="alert"` **ภายใน modal** ไม่ใช่หลังฉากหลัง
+- ฟอร์มตั้ง `noValidate` เพื่อไม่ให้ browser ดักข้อความของตัวเองมาก่อน เพราะข้อความของ browser เป็นภาษาอังกฤษล้วน
 
 ผลการตรวจสอบ Input Validation ด้วยการยิงคำขอจริง 13 รายการ **ผ่านทั้ง 13 รายการ** ได้แก่ ช่องว่าง, Machine ID ซ้ำ, Machine ID ซ้ำแบบต่างตัวพิมพ์, รูปแบบผิด, สั้นเกิน, ยาวเกิน, Status ไม่มีในระบบ, Alarm Code ว่าง, Alarm Description ว่าง, Maintenance Problem ว่าง และ Status ที่ไม่มีในระบบ
+
+นอกจากนี้ยังมีชุดทดสอบ `tests/integration.test.ts` ที่ยิงข้าม browser ไปตรง ๆ เพื่อพิสูจน์ว่า **ฐานข้อมูล** ปฏิเสธด้วยเอง ไม่ใช่แค่ฟอร์ม ครอบคลุมกรณีค่าที่ยาวเกินขีดจำกัดพอดีและเกินขีด 1 ตัวอักษร และกรณีที่ผู้ใช้พยายามเปลี่ยน Role ของตัวเอง
 
 ## 4. โครงสร้างฐานข้อมูล
 
@@ -146,7 +153,7 @@ Web application สำหรับทีมงาน Automation ในโรง�
 
 ### 4.2 การติดตั้งฐานข้อมูล (แนะนำวิธีเร็วที่สุด)
 
-คัดลอกเนื้อหาไฟล์ [`supabase/bootstrap.sql`](./supabase/bootstrap.sql) ไปวางใน **Supabase → SQL Editor** แล้วกด **Run** ไฟล์นี้คือ migration ทั้ง 9 ไฟล์เรียงตามลำดับ ต่อด้วย `seed.sql` รวมเป็นไฟล์เดียว
+คัดลอกเนื้อหาไฟล์ [`supabase/bootstrap.sql`](./supabase/bootstrap.sql) ไปวางใน **Supabase → SQL Editor** แล้วกด **Run** ไฟล์นี้คือ migration ทั้ง 11 ไฟล์เรียงตามลำดับ ต่อด้วย `seed.sql` รวมเป็นไฟล์เดียว
 
 ไฟล์นี้ **รันซ้ำได้** ทุกคำสั่งถูกเขียนให้ปลอดภัยเมื่อรันซ้ำ ได้แก่
 
@@ -172,6 +179,8 @@ Web application สำหรับทีมงาน Automation ในโรง�
 7. `supabase/migrations/007_seed_viewer_account.sql`
 8. `supabase/migrations/008_seed_friendly_actor_defaults.sql`
 9. `supabase/migrations/009_audit_change_requests.sql`
+10. `supabase/migrations/010_column_length_limits.sql`
+11. `supabase/migrations/011_profile_self_service.sql`
 
 ข้อมูลตัวอย่างสำหรับทดลองใช้งานเพิ่มเติมอยู่ใน `supabase/seed.sql` ไฟล์นี้มี 4 เครื่อง, 9 alarm กระจายใน 7 วัน และ 3 งานบำรุงรักษา (2 งานปิดเสร็จแล้ว)
 
@@ -292,16 +301,17 @@ npm run build
 
 ### 6.1 GitHub Actions (CI)
 
-Workflow ที่ `.github/workflows/ci.yml` ทำงานอัตโนมัติทุกครั้งที่ push เข้า `main` และทุก pull request แบ่งเป็น 6 ขั้นตอนที่มีชื่อชัดเจน เพื่อให้แท็บ Actions แสดงว่าขั้นตอนใดล้มเหลว
+Workflow ที่ `.github/workflows/ci.yml` ทำงานอัตโนมัติทุกครั้งที่ push เข้า `main` และทุก pull request แบ่งเป็น 7 ขั้นตอนที่มีชื่อชัดเจน เพื่อให้แท็บ Actions แสดงว่าขั้นตอนใดล้มเหลว
 
 | ขั้นตอน | คำสั่ง |
 | --- | --- |
 | 1. Install dependencies | `npm ci` |
 | 2. Lint | `npm run lint` |
 | 3. Test | `npm test` |
-| 4. Generate Next.js route types | `npx next typegen` |
-| 5. Typecheck | `npm run typecheck` |
-| 6. Build | `npm run build` |
+| 4. Integration test | `npm run test:db` (ข้ามถ้ายังไม่ได้ตั้ง secret) |
+| 5. Generate Next.js route types | `npx next typegen` |
+| 6. Typecheck | `npm run typecheck` |
+| 7. Build | `npm run build` |
 
 `npm run lint` ใช้ `--max-warnings 0` ดังนั้น warning ใด ๆ ก็ทำให้ CI ล้มเหลว ไม่ใช่แค่ error
 
@@ -309,9 +319,17 @@ Workflow ที่ `.github/workflows/ci.yml` ทำงานอัตโนม�
 
 | ไฟล์ทดสอบ | สิ่งที่ตรวจ |
 | --- | --- |
-| `validation.test.ts` | การบังคับข้อมูล, รูปแบบ Machine ID, การแปลงวันที่ และการแปลงรหัส error ของ Postgres เป็นข้อความที่ผู้ใช้อ่านรู้เรื่อง |
+| `validation.test.ts` | การบังคับข้อมูล, รูปแบบ Machine ID, การแปลงวันที่, การแปลงรหัส error เป็นข้อความสองภาษา |
 | `format.test.ts` | การเติม s ตามจำนวน เช่น `1 machine` ไม่ใช่ `1 machines` |
-| `machines.test.ts` | การอ่านรายการเครื่องจักรทั้งกรณีที่คอลัมน์ `is_archived` มีอยู่แล้วและยังไม่มี |
+| `machines.test.ts` | การอ่านเครื่องจักรทั้งเครื่องที่ใช้งานอยู่และที่ถูก archive แล้ว |
+
+`npm run test:db` เป็นชุดแยกต่างหากใน [`tests/integration.test.ts`](./tests/integration.test.ts) ตรวจ 27 ข้อ **โดยตรงกับฐานข้อมูลจริง** ครอบคลุมสิ่งที่มีอยู่เฉพาะใน Postgres เท่านั้น ได้แก่ RLS, check constraint และ trigger · ต้องใช้ค่าสองตัวที่เป็น public เท่านั้น (ไม่ต้องใช้ service role key) และจะข้ามตัวเองอย่างชัดเจนถ้าไม่ได้ตั้งค่า
+
+```bash
+TEST_SUPABASE_URL=https://<project-ref>.supabase.co \
+TEST_SUPABASE_ANON_KEY=<publishable key> \
+npm run test:db
+```
 
 ต้องรัน `next typegen` ก่อนตรวจ TypeScript เพราะชนิดอย่าง `LayoutProps` ถูกสร้างไว้ใน `.next/types/` ซึ่งอยู่ใน `.gitignore` เครื่องที่ checkout ใหม่จึงไม่มีไฟล์นี้
 
@@ -342,7 +360,7 @@ Workflow ที่ `.github/workflows/ci.yml` ทำงานอัตโนม�
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | คีย์ `sb_publishable_...` จาก Supabase → Project Settings → API |
 
    ติ๊กให้ครบทั้ง **Production**, **Preview** และ **Development** · ไม่จำเป็นต้องใช้และห้ามใส่ Service Role Key
-4. รัน `supabase/bootstrap.sql` (หรือ migration ทั้ง 9 ไฟล์) กับโปรเจกต์ Supabase ก่อนทดสอบ
+4. รัน `supabase/bootstrap.sql` (หรือ migration ทั้ง 11 ไฟล์) กับโปรเจกต์ Supabase ก่อนทดสอบ
 5. Deploy แล้วทดสอบ `/login`, `/dashboard`, `/machines`, `/alarms`, `/maintenance`, `/audit`, `/history` และ `/requests` บน URL ของ Vercel
 
 ระบบต้องการ Node.js เวอร์ชัน 22.6 ขึ้นไป โดย `package.json` ระบุ `engines.node` ไว้เพื่อให้ Vercel เลือก runtime ที่เข้ากันได้ (Next.js 16 ต้องการ 20.9 ขึ้นไป แต่ชุดทดสอบใช้ type stripping ของ Node.js ซึ่งมาตั้งแต่ 22.6)
@@ -368,8 +386,8 @@ Workflow ที่ `.github/workflows/ci.yml` ทำงานอัตโนม�
 | เพิ่ม Audit Log | ทำแล้ว | เมนู **Audit** · trigger บันทึกอัตโนมัติทุก insert/update/delete |
 | เพิ่ม Notification | ทำแล้ว | กระดิ่งบน Topbar · รายการ alarm ที่ยัง active + desktop notification |
 | Responsive UI | ทำแล้ว | ทุกหน้า รองรับมือถือ |
-| Export CSV | ทำแล้ว | หน้า Reports · ส่งออก Machine, Alarm และ Maintenance เป็นไฟล์ CSV (ยังไม่มี Excel) |
-| Dark Mode | ทำแล้ว | ปุ่มพระจันทร์บน Topbar และหน้า Login · จำค่าไว้ใน localStorage |
+| Export CSV | ทำแล้ว | หน้า Reports · ส่งออกเฉพาะแถวที่กรองไว้ คอลัมน์เครื่องใช้รหัสเครื่องจริง ไม่ใช่ id ภายใน |
+| Dark Mode | ทำแล้ว | ปุ่มพระจันทร์บน Topbar และหน้า Login · หน้า Settings เลือกได้ 3 แบบ (ตามระบบ / สว่าง / มืด) · จำค่าไว้ใน localStorage |
 | เพิ่ม Filter ตามช่วงวันที่ | ทำแล้ว | Dashboard เลือก 24 ชม. / 7 วัน |
 | Change Request ต้องผู้ดูแลอนุมัติ | ทำแล้ว | เมนู **Requests** · ทุกคนเสนอได้, เฉพาะ Admin อนุมัติ/ปฏิเสธ |
 | เพิ่มข้อมูล Technician | ทำแล้ว | ค้นหาและกรองตามช่างในหน้า Maintenance, แสดงชื่อผู้รับผิดชอบใน Audit และ Requests |
@@ -432,7 +450,7 @@ Workflow ที่ `.github/workflows/ci.yml` ทำงานอัตโนม�
 
 - [x] URL ของ GitHub repository
 - [x] URL ของระบบที่ deploy บน Vercel — https://web-application-psi-tawny.vercel.app
-- [x] สคีมาฐานข้อมูลบน Supabase — [migration 8 ไฟล์](./supabase/migrations) และ [เอกสารสคีมา](./DATABASE_SCHEMA.md)
+- [x] สคีมาฐานข้อมูลบน Supabase — [migration 11 ไฟล์](./supabase/migrations) และ [เอกสารสคีมา](./DATABASE_SCHEMA.md)
 - [x] มีบัญชีทดสอบทั้ง Admin, Technician และ Viewer
 - [x] อัปเดต README ด้วย URL จริงของ Vercel
 - [x] จับภาพหน้าจอระบบแล้ว — ดู [หัวข้อ 9](#9-ภาพหน้าจอระบบ)
