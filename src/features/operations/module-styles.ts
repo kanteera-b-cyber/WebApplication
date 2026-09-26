@@ -99,6 +99,15 @@ export const alarmColumns = "grid-cols-[1.5fr_1fr_1.2fr_.8fr]";
 
 export const moduleError = "mx-auto mb-3.5 max-w-[1180px] rounded-[6px] bg-danger-soft px-[13px] py-[10px] text-[11px] text-danger";
 
+/**
+ * The same message, inside a modal.
+ *
+ * The page-level banner sits behind the modal backdrop, so a validation failure
+ * raised while a form is open was dimmed and easy to miss. This one renders in
+ * the card the user is actually looking at.
+ */
+export const modalError = "rounded-[6px] bg-danger-soft px-[11px] py-[9px] text-[11px] text-danger";
+
 export const moduleEmpty = "px-5 py-8 text-center text-xs text-[color:var(--color-faint)]";
 
 export const moduleFootnote = "mx-auto mt-3.5 max-w-[1180px] text-[10px] text-muted";
