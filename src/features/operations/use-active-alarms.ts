@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
+import { onAlarmsChanged } from "@/lib/operations/alarm-events";
 
 /**
  * An alarm that still needs attention, with the machine code joined on.
@@ -25,7 +26,6 @@ export type ActiveAlarms = {
   alarms: ActiveAlarm[];
   machineName: (id: string) => string;
   loading: boolean;
-  refresh: () => void;
 };
 
 const SELECT = "id, machine_id, alarm_code, description, status, occurred_at, machines(machine_id)";
@@ -35,13 +35,33 @@ const SELECT = "id, machine_id, alarm_code, description, status, occurred_at, ma
  *
  * The machine code is joined in the same request so the bell can name a machine
  * without a second round trip, and only non-closed rows are fetched because
- * nothing else is ever shown there. The dashboard passes its own already-loaded
- * list instead of using this, so the alarm queue and the bell cannot disagree.
+ * nothing else is ever shown there.
+ *
+ * It refetches whenever an alarm is written anywhere in the app, and when the
+ * window regains focus. Fetching once on mount was the bug: closing an alarm
+ * left it in the bell for the rest of the session, so the bell reported an alarm
+ * as open when it was not. A closed alarm has to disappear the moment it is
+ * closed, otherwise the badge is worse than no badge.
+ *
+ * The dashboard passes its own already-loaded list instead of using this, so the
+ * alarm queue and the bell there cannot disagree.
  */
 export function useActiveAlarms(): ActiveAlarms {
   const [rows, setRows] = useState<ActiveAlarm[]>([]);
   const [loading, setLoading] = useState(true);
   const [nonce, setNonce] = useState(0);
+
+  const refetch = () => setNonce((n) => n + 1);
+
+  useEffect(() => onAlarmsChanged(refetch), []);
+
+  // A write in another tab, or one made while this tab was in the background,
+  // reaches this window through focus rather than through the bus.
+  useEffect(() => {
+    function onFocus() { refetch(); }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -88,7 +108,5 @@ export function useActiveAlarms(): ActiveAlarms {
     return (id: string) => names.get(id) ?? "Unknown machine";
   }, [rows]);
 
-  const refresh = useCallback(() => setNonce((n) => n + 1), []);
-
-  return { alarms: rows, machineName, loading, refresh };
+  return { alarms: rows, machineName, loading };
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
-import { Archive, LoaderCircle, Pencil, Plus, RotateCcw, Search, ShieldAlert, Trash2, X } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Archive, LoaderCircle, Pencil, Plus, RotateCcw, Search, ShieldAlert, Target, Trash2, X } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { describeWriteError, isOneOf, machineId, requiredText } from "@/lib/operations/validation";
@@ -32,6 +32,7 @@ import {
   modalTitle,
   moduleEmpty,
   moduleError,
+  moduleNotice,
   permissionNote,
   recordStatus,
   rowStrong,
@@ -72,6 +73,12 @@ function messageFromError(error: unknown) {
 
 export function MachineConsole() {
   const router = useRouter();
+  // Deep links from the dashboard, where each machine in the health list is a
+  // link rather than a label: ?q= seeds the search box and ?status= the status
+  // picker, so a click on a machine lands on that machine.
+  const searchParams = useSearchParams();
+  const queryFromLink = searchParams.get("q");
+  const statusFromLink = searchParams.get("status");
   const { role } = useCurrentUser();
   const [machines, setMachines] = useState<Machine[]>([]);
   const [query, setQuery] = useState("");
@@ -87,6 +94,27 @@ export function MachineConsole() {
   // would then be offered Create / Edit / Delete buttons that Row Level Security
   // rejects anyway.
   const canManage = role === "admin";
+
+  // Applied during render rather than in an effect, which is the only form the
+  // compiler lint accepts for reacting to a changed input, and it runs at most
+  // once per real change to the query string. Values that are not real are
+  // ignored rather than written, so a hand-edited link cannot wedge the picker.
+  const [lastQueryFromLink, setLastQueryFromLink] = useState(queryFromLink);
+  if (queryFromLink !== lastQueryFromLink) {
+    setLastQueryFromLink(queryFromLink);
+    if (queryFromLink) setQuery(queryFromLink);
+  }
+  const [lastStatusFromLink, setLastStatusFromLink] = useState(statusFromLink);
+  if (statusFromLink !== lastStatusFromLink) {
+    setLastStatusFromLink(statusFromLink);
+    if (statusFromLink && isOneOf(statusFromLink, MACHINE_STATUSES)) {
+      setFilter(statusFromLink);
+    }
+  }
+
+  const clearLink = useCallback(() => {
+    if (queryFromLink || statusFromLink) router.replace("/machines", { scroll: false });
+  }, [queryFromLink, statusFromLink, router]);
 
   useEffect(() => {
     let active = true;
@@ -116,9 +144,18 @@ export function MachineConsole() {
 
   const filtered = machines.filter((item) => {
     const text = `${item.machine_id} ${item.machine_name} ${item.machine_type} ${item.location}`.toLowerCase();
-    const inScope = scope === "all" || (scope === "archived" ? Boolean(item.is_archived) : !item.is_archived);
+    // A machine named in the link is pulled out of the archive scope, so a link
+    // to a retired machine does not land on an empty list.
+    const namedInLink = Boolean(linkedQuery) && text.includes(linkedQuery.toLowerCase());
+    const inScope = namedInLink || scope === "all" || (scope === "archived" ? Boolean(item.is_archived) : !item.is_archived);
     return text.includes(query.toLowerCase()) && inScope && (filter === "all" || item.status === filter);
   });
+
+  /** The machine a link named, so the banner can name it rather than an id. */
+  const linkedQuery = queryFromLink ?? "";
+  const linked = linkedQuery
+    ? machines.find((item) => `${item.machine_id} ${item.machine_name}`.toLowerCase().includes(linkedQuery.toLowerCase()))
+    : undefined;
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -232,6 +269,19 @@ export function MachineConsole() {
       </div>
       <div className={toolbar}><div className={searchBox}><Search size={16} /><input className={searchInput} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search machine ID, name or location..." aria-label="Search machines" /></div><select className={`${select} min-w-[150px] max-[760px]:h-[38px]`} value={filter} onChange={(event) => setFilter(event.target.value)} aria-label="Filter machine status"><option value="all">All statuses</option>{MACHINE_STATUSES.map((status) => <option value={status} key={status}>{STATUS_LABELS[status]}</option>)}</select><select className={`${select} min-w-[150px] max-[760px]:h-[38px]`} value={scope} onChange={(event) => setScope(event.target.value as typeof scope)} aria-label="Filter archived machines"><option value="active">Active ({activeCount})</option><option value="archived">Archived ({archivedCount})</option><option value="all">All ({machines.length})</option></select></div>
       {error && <div className={moduleError} role="alert">{error}</div>}
+      {(queryFromLink || statusFromLink) && (
+        <div className={`${moduleNotice} max-w-[1180px]`} role="status">
+          <Target size={14} className="shrink-0 text-brand" />
+          <span className="flex-1">
+            {queryFromLink
+              ? linked
+                ? `Filtered to ${linked.machine_id} from a link. It is listed even if the scope below would hide it.`
+                : `Looking for "${queryFromLink}" from a link. No machine matches, which usually means it was deleted or the code is wrong.`
+              : `Showing only ${STATUS_LABELS[isOneOf(statusFromLink ?? "", MACHINE_STATUSES) ? statusFromLink as MachineStatus : "running"]} machines, from a link.`}
+          </span>
+          <button className={iconButton} onClick={clearLink} aria-label="Clear the link and show every machine"><X size={14} /></button>
+        </div>
+      )}
       {loading ? <div className={moduleEmpty}>Loading machines...</div> : <div className={tableCard}><div className={`${tableHead} ${machineColumns}`}><span>Machine</span><span>Type</span><span>Location</span><span>Status</span><span>{canManage ? "Actions" : "Access"}</span></div>{filtered.map((machine) => {
         const busy = archivingId === machine.id;
         return (

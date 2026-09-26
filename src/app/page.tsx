@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Activity,
   AlertTriangle,
@@ -32,6 +33,7 @@ import { plural } from "@/lib/operations/format";
 import { activeMachines, machineNameLookup } from "@/lib/operations/machines";
 import { AlarmChart } from "@/features/operations/alarm-chart";
 import { NotificationBell } from "@/features/operations/notification-bell";
+import { onAlarmsChanged } from "@/lib/operations/alarm-events";
 import { ThemeToggle } from "@/features/operations/theme-toggle";
 import {
   alarmCopy,
@@ -195,44 +197,83 @@ export function DashboardView() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [range, setRange] = useState<"24h" | "7d">("24h");
   const [referenceTime, setReferenceTime] = useState(0);
+  /** Identifies the newest dashboard request, so a slow earlier one is ignored. */
+  const requestId = useRef(0);
+
+  /**
+   * Fetches the dashboard payload, or null when the endpoint is unavailable.
+   *
+   * Fetching and applying are separate on purpose. It keeps the request id
+   * guard in one readable place, and it means the callers below are the only
+   * code that touches state, rather than a fetch helper that has to be trusted
+   * to be non-blocking.
+   */
+  const fetchDashboard = useCallback(async (): Promise<DashboardResponse | null> => {
+    try {
+      const response = await fetch("/api/dashboard", { cache: "no-store" });
+      if (!response.ok) return null;
+      return (await response.json()) as DashboardResponse;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  /** Writes a payload into state, or blanks the page when there is none. */
+  const applyDashboard = useCallback((data: DashboardResponse | null) => {
+    setReferenceTime(Date.now());
+    if (!data) {
+      // Shown as "Data unavailable" rather than as zeroes, so an outage is not
+      // mistaken for a plant with nothing wrong with it.
+      setSummary(emptySummary);
+      setMachines([]);
+      setAlarms([]);
+      setMaintenanceRows([]);
+      setDataState("fallback");
+      return;
+    }
+    setSummary({
+      totalMachines: Number(data.totalMachines ?? 0),
+      activeAlarms: Number(data.activeAlarms ?? 0),
+      maintenanceRecords: Number(data.maintenanceRecords ?? 0),
+      running: Number(data.running ?? 0),
+      stop: Number(data.stop ?? 0),
+      alarm: Number(data.alarm ?? 0),
+      maintenance: Number(data.maintenance ?? 0),
+      completedMaintenance: Number(data.completedMaintenance ?? 0),
+    });
+    setMachines(Array.isArray(data.machines) ? data.machines : []);
+    setAlarms(Array.isArray(data.alarms) ? data.alarms : []);
+    setMaintenanceRows(Array.isArray(data.maintenanceRows) ? data.maintenanceRows : []);
+    setDataState("ready");
+  }, []);
+
+  /**
+   * Reloads, discarding a response that a newer request has already beaten.
+   *
+   * The request id is needed because a reload can be triggered three ways
+   * (first paint, an alarm write, the window regaining focus) and they can
+   * overlap. Without it, a slow first request landing after a fresh refetch
+   * would put the old numbers back on screen.
+   */
+  const reload = useCallback(() => {
+    const id = ++requestId.current;
+    void fetchDashboard().then((data) => {
+      if (id === requestId.current) applyDashboard(data);
+    });
+  }, [applyDashboard, fetchDashboard]);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  // The alarm queue and the notification bell both read from `alarms`, so
+  // closing an alarm has to be reflected here too. Without this, navigating back
+  // to the dashboard could still show an alarm that no longer exists, because
+  // the router keeps this component's state alive.
+  useEffect(() => onAlarmsChanged(reload), [reload]);
 
   useEffect(() => {
-    let active = true;
-    fetch("/api/dashboard", { cache: "no-store" })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("dashboard unavailable");
-        return response.json() as Promise<DashboardResponse>;
-      })
-      .then((data) => {
-        if (!active) return;
-        setSummary({
-          totalMachines: Number(data.totalMachines ?? 0),
-          activeAlarms: Number(data.activeAlarms ?? 0),
-          maintenanceRecords: Number(data.maintenanceRecords ?? 0),
-          running: Number(data.running ?? 0),
-          stop: Number(data.stop ?? 0),
-          alarm: Number(data.alarm ?? 0),
-          maintenance: Number(data.maintenance ?? 0),
-          completedMaintenance: Number(data.completedMaintenance ?? 0),
-        });
-        setMachines(Array.isArray(data.machines) ? data.machines : []);
-        setAlarms(Array.isArray(data.alarms) ? data.alarms : []);
-        setMaintenanceRows(Array.isArray(data.maintenanceRows) ? data.maintenanceRows : []);
-        setReferenceTime(Date.now());
-        setDataState("ready");
-      })
-      .catch(() => {
-        if (!active) return;
-        setSummary(emptySummary);
-        setMachines([]);
-        setAlarms([]);
-        setMaintenanceRows([]);
-        setDataState("fallback");
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+    window.addEventListener("focus", reload);
+    return () => window.removeEventListener("focus", reload);
+  }, [reload]);
 
   // Built from every machine the API returns, archived included, so an alarm on a
   // retired machine still shows its code instead of "Unknown machine".
@@ -387,7 +428,7 @@ export function DashboardView() {
 
           <div className={sectionGrid}>
             <section className={panel}>
-              <div className={panelHeader}><div><div className={panelTitleRow}><h2 className={panelTitle}>Alarm queue</h2><span className={countBadge}>{activeScopedAlarms.length} active</span></div><p className={panelSubtitle}>Real-time alerts requiring attention</p></div><button className={textButton} onClick={() => router.push("/alarms")}>View all <span className="ml-[5px] text-[15px]">→</span></button></div>
+              <div className={panelHeader}><div><div className={panelTitleRow}><h2 className={panelTitle}>Alarm queue</h2><span className={countBadge}>{activeScopedAlarms.length} active</span></div><p className={panelSubtitle}>Real-time alerts requiring attention</p></div><button className={textButton} onClick={() => router.push("/alarms?status=open")}>View all <span className="ml-[5px] text-[15px]">→</span></button></div>
               <div className={tableToolbar}><div className={searchBox}><Search size={16} /><input className={searchInput} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search alarms..." aria-label="ค้นหา alarms" /></div><button className={`${filterButton} ${showFilters ? filterButtonSelected : ""}`} onClick={() => setShowFilters(!showFilters)}><SlidersHorizontal size={15} />Filter</button></div>
               {showFilters && <div className={filterStrip}><span>Showing</span><strong>{range === "24h" ? "Last 24 hours" : "Last 7 days"}</strong><span className={filterStripCount}>{stillOpen} active · {plural(servicingInWindow.length, "machine")} being serviced</span><button className={filterStripClear} onClick={() => { setQuery(""); setRange("24h"); }}>Clear</button></div>}
               <div className={alarmList}>{activeScopedAlarms.slice(0, 6).map((alarm) => <AlarmRow key={alarm.id} alarm={alarm} machine={machineName(alarm.machine_id)} />)}</div>
@@ -420,7 +461,10 @@ function MetricCard({ label, value, delta, note, icon, tone, alert = false }: { 
 
 function AlarmRow({ alarm, machine }: { alarm: Alarm; machine: string }) {
   const tone = alarmTone(alarm.status);
-  return <div className={alarmRow}><div className={`${alarmSeverity} ${alarmSeverityTones[tone] ?? ""}`}><AlertTriangle size={15} /></div><div className={alarmCopy}><div className={alarmCopyHead}><strong>{alarm.alarm_code}</strong><span className={machineTag}>{machine}</span></div><p className={alarmDescription}>{alarm.description}</p></div><div className={alarmTime}>{formatRelativeTime(alarm.occurred_at)}</div><span className={`${alarmStatusBadge} ${statusTone[tone] ?? ""}`}>{labelStatus(alarm.status)}</span></div>;
+  // A queue you have to re-find by eye is a queue that has failed at its job, so
+  // the row is the link and lands on that alarm via ?id=, which the console
+  // highlights.
+  return <Link href={`/alarms?id=${alarm.id}`} className={`${alarmRow} no-underline`} aria-label={`Open alarm ${alarm.alarm_code} on ${machine}`}><div className={`${alarmSeverity} ${alarmSeverityTones[tone] ?? ""}`}><AlertTriangle size={15} /></div><div className={alarmCopy}><div className={alarmCopyHead}><strong>{alarm.alarm_code}</strong><span className={machineTag}>{machine}</span></div><p className={alarmDescription}>{alarm.description}</p></div><div className={alarmTime}>{formatRelativeTime(alarm.occurred_at)}</div><span className={`${alarmStatusBadge} ${statusTone[tone] ?? ""}`}>{labelStatus(alarm.status)}</span></Link>;
 }
 
 /**
@@ -433,7 +477,10 @@ function AlarmRow({ alarm, machine }: { alarm: Alarm; machine: string }) {
  */
 function MachineRow({ machine, openAlarms }: { machine: Machine; openAlarms: number }) {
   return (
-    <div className={machineRow}>
+    // Linked to the machine filtered on its own code, which is the same reason
+    // the bar is drawn from a real count: if the figure is worth showing, it is
+    // worth being able to go and look at.
+    <Link href={`/machines?q=${encodeURIComponent(machine.machine_id)}`} className={`${machineRow} no-underline`} aria-label={`Open machine ${machine.machine_id}, ${plural(openAlarms, "open alarm")}`}>
       <div className={machineIcon}><Bot size={17} /></div>
       <div className={machineInfo}>
         <div className={machineNameRow}>
@@ -447,7 +494,7 @@ function MachineRow({ machine, openAlarms }: { machine: Machine; openAlarms: num
         <div className={openAlarms > 0 ? healthBarFillLow : healthBarFill} style={{ width: `${Math.min(100, openAlarms * 34)}%` }} />
       </div>
       <span className={healthValue}>{openAlarms}</span>
-    </div>
+    </Link>
   );
 }
 

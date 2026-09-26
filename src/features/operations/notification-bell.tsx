@@ -68,9 +68,16 @@ export function NotificationBell({ alarms, machineName }: { alarms: BellAlarm[];
   useEffect(() => {
     if (permission !== "granted" || active.length === 0) return;
     const newest = active[0];
-    const seen = sessionStorage.getItem("forgeops-notified");
-    if (seen === newest.id) return;
-    sessionStorage.setItem("forgeops-notified", newest.id);
+    // Keyed on when the newest alarm happened, not on which alarm it is.
+    // Tracking the id looked right and was wrong: close the newest alarm and the
+    // next one down became "newest", its id no longer matched, and the browser
+    // announced an alarm that had been sitting there for hours. A time stamp
+    // makes the rule what it was meant to be: only announce something that
+    // happened after the last announcement.
+    const lastAnnounced = Number(sessionStorage.getItem("forgeops-notified-at") ?? 0);
+    const newestAt = new Date(newest.occurred_at).getTime();
+    if (!Number.isFinite(newestAt) || newestAt <= lastAnnounced) return;
+    sessionStorage.setItem("forgeops-notified-at", String(newestAt));
     try {
       const notice = new Notification(`New alarm · ${newest.alarm_code}`, {
         body: `${machineName(newest.machine_id)} · ${formatRelativeTime(newest.occurred_at)}`,

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/browser";
 import { useCurrentUser, canWrite } from "@/lib/auth/use-current-user";
 import { describeWriteError, isOneOf, msg, optionalText, requiredDate, requiredText, toDateTimeLocal } from "@/lib/operations/validation";
 import { ALARM_STATUSES, type Alarm } from "@/lib/operations/types";
+import { emitAlarmsChanged } from "@/lib/operations/alarm-events";
 import { ModuleHeader } from "@/features/operations/module-header";
 import {
   alarmColumns,
@@ -214,6 +215,7 @@ export function AlarmConsole() {
 
       const saved = result.data as Alarm;
       setAlarms((current) => editing?.id ? current.map((item) => item.id === editing.id ? saved : item) : [saved, ...current]);
+      emitAlarmsChanged();
       setOpen(false);
       setEditing(null);
     } catch (submitError) {
@@ -233,6 +235,9 @@ export function AlarmConsole() {
       if (result.error) throw result.error;
       if (!result.data) throw new Error("The alarm was not updated. Check your role permission.");
       setAlarms((current) => current.map((item) => item.id === alarm.id ? result.data as Alarm : item));
+      // This is the write that made the bell wrong before: closing an alarm
+      // updated this list and nothing else, so the bell kept announcing it.
+      emitAlarmsChanged();
     } catch (statusError) {
       setError(describeWriteError(statusError, "alarm", "save"));
     }
@@ -249,6 +254,7 @@ export function AlarmConsole() {
       if (result.error) throw result.error;
       if (!result.data?.length) throw new Error("The alarm was not deleted. Check Admin permission.");
       setAlarms((current) => current.filter((item) => item.id !== alarm.id));
+      emitAlarmsChanged();
     } catch (removeError) {
       setError(describeWriteError(removeError, "alarm", "delete"));
     }
