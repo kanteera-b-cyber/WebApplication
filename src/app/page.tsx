@@ -26,6 +26,7 @@ import { createClient } from "@/lib/supabase/browser";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { formatRelativeTime } from "@/lib/operations/validation";
 import { eyebrow, eyebrowAccent, statusTone } from "@/features/operations/module-styles";
+import { plural } from "@/lib/operations/format";
 import { AlarmChart } from "@/features/operations/alarm-chart";
 import { NotificationBell } from "@/features/operations/notification-bell";
 import {
@@ -163,13 +164,6 @@ const emptySummary: Summary = {
 
 function labelStatus(value: string) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function healthForStatus(status: string) {
-  if (status === "running") return 96;
-  if (status === "maintenance") return 71;
-  if (status === "alarm") return 48;
-  return 20;
 }
 
 function alarmTone(status: string) {
@@ -323,10 +317,10 @@ export function DashboardView() {
           </div>
 
           <section className={metricGrid} aria-label="ภาพรวมโรงงาน">
-            <MetricCard label="Total machines" value={String(summary.totalMachines)} delta={`${summary.running} running`} note={dataState === "fallback" ? "data unavailable · check Supabase" : "live from Supabase"} icon={<Bot size={18} />} tone="blue" />
+            <MetricCard label="Total machines" value={String(summary.totalMachines)} delta={plural(summary.running, "running")} note={dataState === "fallback" ? "data unavailable · check Supabase" : "live from Supabase"} icon={<Bot size={18} />} tone="blue" />
             <MetricCard label="Active alarms" value={String(summary.activeAlarms)} delta={`${summary.alarm} critical`} note="need attention" icon={<AlertTriangle size={18} />} tone="orange" alert />
-            <MetricCard label="Maintenance records" value={String(summary.maintenanceRecords).padStart(2, "0")} delta={`${summary.maintenance} machines`} note="scheduled work" icon={<Wrench size={18} />} tone="green" />
-            <MetricCard label="Running rate" value={`${uptime}%`} delta={`${summary.totalMachines} total`} note="current machine state" icon={<CircleGauge size={18} />} tone="violet" />
+            <MetricCard label="Maintenance records" value={String(summary.maintenanceRecords).padStart(2, "0")} delta={plural(summary.maintenance, "machine")} note="scheduled work" icon={<Wrench size={18} />} tone="green" />
+            <MetricCard label="Running rate" value={`${uptime}%`} delta={plural(summary.totalMachines, "machine")} note="current machine state" icon={<CircleGauge size={18} />} tone="violet" />
           </section>
 
           <div className={sectionGrid}>
@@ -336,13 +330,15 @@ export function DashboardView() {
               {showFilters && <div className={filterStrip}><span>Showing</span><strong>{range === "24h" ? "Last 24 hours" : "Last 7 days"}</strong><button className={filterStripClear} onClick={() => { setQuery(""); setRange("24h"); }}>Clear</button></div>}
               <div className={alarmList}>{filteredAlarms.slice(0, 6).map((alarm) => <AlarmRow key={alarm.id} alarm={alarm} machine={machineName(alarm.machine_id)} />)}</div>
               {filteredAlarms.length === 0 && <div className={emptyState}>No alarms match your search and time range.</div>}
-              <AlarmChart alarms={alarms} days={range === "24h" ? 1 : 7} />
+              {/* The chart is a 7-day trend, so it is always a week. The range
+                  selector above filters the alarm queue, not this. */}
+              <AlarmChart alarms={alarms} days={7} />
             </section>
 
             <section className={`${panel} max-[1100px]:min-h-0`}>
               <div className={panelHeader}><div><h2 className={panelTitle}>Machine health</h2><p className={panelSubtitle}>Status across production lines</p></div><button className={iconButton} onClick={() => router.push("/machines")} aria-label="Open machines"><MoreHorizontal size={18} /></button></div>
               <div className={healthSummary}><div className={donut} style={{ background: `conic-gradient(var(--color-success) 0 ${runningPercent}%, var(--color-warn) ${runningPercent}% ${runningPercent + maintenancePercent}%, var(--color-danger) ${runningPercent + maintenancePercent}% ${runningPercent + maintenancePercent + alarmPercent}%, var(--color-steel) ${runningPercent + maintenancePercent + alarmPercent}% 100%)` }}><div className={donutCenter}><strong>{summary.totalMachines}</strong><span>machines</span></div></div><div className={legend}><Legend color="var(--color-success)" label="Running" value={summary.running} /><Legend color="var(--color-warn)" label="Maintenance" value={summary.maintenance} /><Legend color="var(--color-danger)" label="Alarm" value={summary.alarm} /><Legend color="var(--color-steel)" label="Stopped" value={summary.stop} /></div></div>
-              <div className={machineList}>{machines.slice(0, 5).map((machine) => <MachineRow key={machine.id} machine={machine} />)}{machines.length === 0 && <div className={emptyState}>No machines found.</div>}</div>
+              <div className={machineList}>{machines.slice(0, 5).map((machine) => <MachineRow key={machine.id} machine={machine} openAlarms={alarms.filter((alarm) => alarm.machine_id === machine.id && alarm.status !== "closed").length} />)}{machines.length === 0 && <div className={emptyState}>No machines found.</div>}</div>
             </section>
           </div>
 
@@ -365,9 +361,32 @@ function AlarmRow({ alarm, machine }: { alarm: Alarm; machine: string }) {
   return <div className={alarmRow}><div className={`${alarmSeverity} ${alarmSeverityTones[tone] ?? ""}`}><AlertTriangle size={15} /></div><div className={alarmCopy}><div className={alarmCopyHead}><strong>{alarm.alarm_code}</strong><span className={machineTag}>{machine}</span></div><p className={alarmDescription}>{alarm.description}</p></div><div className={alarmTime}>{formatRelativeTime(alarm.occurred_at)}</div><span className={`${alarmStatusBadge} ${statusTone[tone] ?? ""}`}>{labelStatus(alarm.status)}</span></div>;
 }
 
-function MachineRow({ machine }: { machine: Machine }) {
-  const health = healthForStatus(machine.status);
-  return <div className={machineRow}><div className={machineIcon}><Bot size={17} /></div><div className={machineInfo}><div className={machineNameRow}><strong>{machine.machine_id}</strong><span className={`${machineStatusTag} ${machineStatusTone[machine.status] ?? statusTone.stop}`}>{labelStatus(machine.status)}</span></div><span className={machineMeta}>{machine.machine_type} · {machine.location}</span></div><div className={healthBar}><div className={health < 60 ? healthBarFillLow : healthBarFill} style={{ width: `${health}%` }} /></div><span className={healthValue}>{health}%</span></div>;
+/**
+ * One machine in the health list.
+ *
+ * The bar is driven by how many alarms are still open on this machine, counted
+ * from the alarms already loaded for the dashboard. It is a real figure taken
+ * from the database rather than a made-up health score, so a machine with no
+ * open alarms correctly shows an empty bar.
+ */
+function MachineRow({ machine, openAlarms }: { machine: Machine; openAlarms: number }) {
+  return (
+    <div className={machineRow}>
+      <div className={machineIcon}><Bot size={17} /></div>
+      <div className={machineInfo}>
+        <div className={machineNameRow}>
+          <strong>{machine.machine_id}</strong>
+          <span className={`${machineStatusTag} ${machineStatusTone[machine.status] ?? statusTone.stop}`}>{labelStatus(machine.status)}</span>
+        </div>
+        <span className={machineMeta}>{machine.machine_type} · {machine.location}</span>
+      </div>
+      {machine.status === "maintenance" && <span className={`${machineStatusTag} bg-warn-soft text-[#ba782c]`}><Wrench size={11} />servicing</span>}
+      <div className={healthBar} title={`${plural(openAlarms, "open alarm")}`}>
+        <div className={openAlarms > 0 ? healthBarFillLow : healthBarFill} style={{ width: `${Math.min(100, openAlarms * 34)}%` }} />
+      </div>
+      <span className={healthValue}>{openAlarms}</span>
+    </div>
+  );
 }
 
 function Legend({ color, label, value }: { color: string; label: string; value: number }) {

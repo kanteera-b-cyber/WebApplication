@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Alarm } from "@/lib/operations/types";
+import { plural } from "@/lib/operations/format";
 
 /**
  * Bonus requirement: an alarm-count chart.
@@ -37,27 +38,34 @@ export function AlarmChart({ alarms, days = 7 }: { alarms: Alarm[]; days?: numbe
   const peak = Math.max(1, ...buckets.map((bucket) => bucket.total));
   const [hover, setHover] = useState<number | null>(null);
 
+  // Heights are computed in pixels rather than percentages. A percentage height
+  // resolves against the parent's height, and these columns are sized by flex,
+  // so a percentage would collapse to zero and no bar would be visible.
+  const PLOT_HEIGHT = 96;
+  const scale = (value: number) => (value === 0 ? 0 : Math.max(5, Math.round((value / peak) * PLOT_HEIGHT)));
+
   return (
     <div className="mt-4">
       <div className="mb-2 flex items-center gap-4 text-[9px] text-[#8792a0]">
         <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-danger" />Still active</span>
         <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-success" />Closed</span>
       </div>
-      <div className="flex h-[104px] items-end gap-1.5" role="img" aria-label={`Alarms per day over the last ${days} days`}>
+      <div className="flex items-end gap-1.5" role="img" aria-label={`Alarms per day over the last ${days} days`}>
         {buckets.map((bucket, index) => {
-          const activeHeight = bucket.total === 0 ? 0 : Math.round((bucket.open / peak) * 100);
-          const closedHeight = bucket.total === 0 ? 0 : Math.round((bucket.closed / peak) * 100);
+          const activeHeight = scale(bucket.open);
+          const closedHeight = scale(bucket.closed);
           return (
             <div
               key={bucket.label}
-              className="flex flex-1 flex-col justify-end gap-px"
+              className="flex flex-1 flex-col items-center justify-end"
               onMouseEnter={() => setHover(index)}
               onMouseLeave={() => setHover(null)}
-              title={`${bucket.label}: ${bucket.total} alarm(s)`}
+              title={`${bucket.label}: ${plural(bucket.total, "alarm")}`}
             >
-              <div className="flex flex-col justify-end" style={{ height: `${Math.max(activeHeight, closedHeight, bucket.total > 0 ? 4 : 0)}%` }}>
-                {closedHeight > 0 && <div className="w-full rounded-t-[3px] bg-success" style={{ height: `${closedHeight}%` }} />}
-                {activeHeight > 0 && <div className="w-full bg-danger" style={{ height: `${activeHeight}%`, borderRadius: closedHeight > 0 ? 0 : "3px 3px 0 0" }} />}
+              <div className="flex w-full flex-col justify-end overflow-hidden rounded-t-[3px]" style={{ height: PLOT_HEIGHT }}>
+                {activeHeight > 0 && <div className="w-full bg-danger" style={{ height: activeHeight }} />}
+                {closedHeight > 0 && <div className={`w-full bg-success ${activeHeight > 0 ? "" : "rounded-t-[3px]"}`} style={{ height: closedHeight }} />}
+                {bucket.total === 0 && <div className="w-full rounded-t-[3px] bg-line" style={{ height: 3 }} />}
               </div>
               <span className={`mt-1.5 text-center text-[8px] ${hover === index ? "font-bold text-ink" : "text-[#a3adb8]"}`}>{bucket.label}</span>
             </div>
@@ -65,7 +73,7 @@ export function AlarmChart({ alarms, days = 7 }: { alarms: Alarm[]; days?: numbe
         })}
       </div>
       <p className="mt-1 text-center text-[9px] text-[#8792a0]">
-        {buckets.reduce((sum, bucket) => sum + bucket.total, 0)} alarm(s) in the last {days} days · peak {peak}/day
+        {plural(buckets.reduce((sum, bucket) => sum + bucket.total, 0), "alarm")} over the last {plural(days, "day")} · peak {peak}/day
       </p>
     </div>
   );
