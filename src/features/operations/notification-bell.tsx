@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, BellOff, CheckCheck, ExternalLink, MonitorSmartphone, ShieldAlert } from "lucide-react";
+import { Bell, BellOff, CheckCheck, ExternalLink, MonitorSmartphone, ShieldAlert, X } from "lucide-react";
 import { formatRelativeTime } from "@/lib/operations/validation";
 import { statusTone } from "@/features/operations/module-styles";
+import { dismissDesktopOffer, useDesktopOfferDismissed, useDesktopPermission } from "./use-desktop-offer";
 
 /**
  * The bell draws from whichever alarm shape its caller already has: the
@@ -37,7 +38,17 @@ export function NotificationBell({ alarms, machineName }: { alarms: BellAlarm[];
   const [open, setOpen] = useState(false);
   // Starts as "default" and only changes from the click handler, so no effect is
   // needed to read browser state and the component stays server-render safe.
-  const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
+  // The browser's answer is the source of truth, so a page that already has
+  // permission never shows the "turn them on" line again just because this
+  // component was mounted fresh.
+  const storedPermission = useDesktopPermission();
+  /** The answer to our own click, which is fresher than the stored one. */
+  const [justAsked, setJustAsked] = useState<NotificationPermission | null>(null);
+  const permission = justAsked ?? storedPermission;
+  // Whether the reader has already refused the desktop alert offer. Read from
+  // the browser, not copied into state by an effect, so a refusal survives a
+  // reload and a restore in another tab is picked up.
+  const dismissed = useDesktopOfferDismissed();
   const rootRef = useRef<HTMLDivElement>(null);
 
   const active = alarms
@@ -92,9 +103,19 @@ export function NotificationBell({ alarms, machineName }: { alarms: BellAlarm[];
   }, [active, machineName, permission, router]);
 
   async function askPermission() {
-    if (!("Notification" in window)) { setPermission("unsupported"); return; }
-    setPermission(await Notification.requestPermission());
+    if (!("Notification" in window)) return;
+    // Kept in state because the store has no event to listen to; a click always
+    // re-renders, and the next page load will read the browser's answer.
+    setJustAsked(await Notification.requestPermission());
   }
+
+  /**
+   * Stops offering desktop alerts in the bell, for good.
+   *
+   * Settings still offers to turn them on, so refusing here is not a one-way
+   * door. See use-desktop-offer for why this lives in localStorage.
+   */
+  const dismissOffer = dismissDesktopOffer;
 
   const go = useCallback((href: string) => {
     setOpen(false);
@@ -149,24 +170,39 @@ export function NotificationBell({ alarms, machineName }: { alarms: BellAlarm[];
             )}
           </div>
 
-          {permission === "denied" ? (
-            <p className="flex items-start gap-1.5 border-b border-line bg-sunken px-3 py-2 text-[9px] leading-[1.6] text-muted">
-              <ShieldAlert size={12} className="mt-0.5 shrink-0 text-warn" />
-              Desktop notifications are blocked in this browser. Allow them in the site settings to be told about an alarm while another tab is open.
-            </p>
-          ) : permission !== "granted" && permission !== "unsupported" ? (
-            <button
-              type="button"
-              onClick={() => void askPermission()}
-              className="flex w-full items-start gap-1.5 border-b border-line bg-sunken px-3 py-2 text-left text-[9px] leading-[1.6] text-muted hover:bg-brand-soft"
-            >
-              <MonitorSmartphone size={12} className="mt-0.5 shrink-0 text-brand" />
-              <span>
-                <strong className="block text-ink">Get a desktop alert</strong>
-                Be told when a new alarm appears while you are on another tab. The browser will ask once.
-              </span>
-            </button>
-          ) : null}
+          {/* One line, and dismissible. It used to be a four-line pitch placed
+              above the alarms, which made the promotion bigger than the thing
+              it was promoting, and there was no way to refuse it: the same
+              block sat there for the whole session. The way back is the Settings
+              page, which is where a preference like this belongs. */}
+          {permission === "unsupported" ? null : permission === "denied" ? (
+            <div className="flex items-center gap-2 border-b border-line bg-sunken px-3 py-1.5">
+              <ShieldAlert size={12} className="shrink-0 text-warn" />
+              <span className="flex-1 text-[9px] text-muted">Desktop alerts are blocked in this browser</span>
+              <button type="button" onClick={() => go("/settings#desktop")} className="text-[9px] font-bold text-brand hover:underline">How to fix</button>
+            </div>
+          ) : permission === "granted" ? (
+            <div className="flex items-center gap-2 border-b border-line bg-sunken px-3 py-1.5">
+              <CheckCheck size={12} className="shrink-0 text-success" />
+              <span className="flex-1 text-[9px] text-muted">Desktop alerts are on for this browser</span>
+            </div>
+          ) : dismissed ? null : (
+            <div className="flex items-center gap-2 border-b border-line bg-sunken px-3 py-1.5">
+              <MonitorSmartphone size={12} className="shrink-0 text-brand" />
+              <button type="button" onClick={() => void askPermission()} className="flex-1 text-left text-[9px] text-muted hover:text-ink">
+                <strong className="text-ink">Desktop alerts are off</strong> — turn them on
+              </button>
+              <button
+                type="button"
+                onClick={dismissOffer}
+                aria-label="Stop offering desktop alerts"
+                title="Stop offering"
+                className="shrink-0 rounded-[4px] p-0.5 text-faint hover:bg-surface hover:text-ink"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
 
           <div className="max-h-[260px] overflow-y-auto">
             {active.map((alarm) => (

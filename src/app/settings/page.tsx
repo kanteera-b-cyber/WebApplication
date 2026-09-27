@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { CheckCircle2, Database, LockKeyhole, Monitor, Moon, Sun, UserRound } from "lucide-react";
+import { Bell, CheckCircle2, Database, LockKeyhole, Monitor, Moon, RotateCcw, ShieldAlert, Sun, UserRound } from "lucide-react";
 import { ModuleHeader } from "@/features/operations/module-header";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { createClient } from "@/lib/supabase/browser";
 import { useTheme, THEME_OPTIONS } from "@/features/operations/theme-toggle";
+import { restoreDesktopOffer, useDesktopOfferDismissed, useDesktopPermission } from "@/features/operations/use-desktop-offer";
 import { describeWriteError } from "@/lib/operations/validation";
 import {
   button,
@@ -50,6 +51,19 @@ export default function SettingsPage() {
 
   const [counters, setCounters] = useState<Counters | null>(null);
   const [connection, setConnection] = useState<"checking" | "ok" | "failed">("checking");
+
+  // Both of these live in the browser rather than in React, so they are read as
+  // stores. That is what makes the dismissal survive a reload and follow a
+  // change made in another tab, without an effect copying a value the browser
+  // will keep for us anyway.
+  const desktop = useDesktopPermission();
+  const offerDismissed = useDesktopOfferDismissed();
+
+  async function enableDesktop() {
+    if (!("Notification" in window)) return;
+    // A click causes the re-render that re-reads the permission from the store.
+    await Notification.requestPermission();
+  }
 
   useEffect(() => {
     // Nothing to look up until the session resolves. Without this guard the
@@ -210,6 +224,52 @@ export default function SettingsPage() {
             <span className="min-w-[110px] text-[11px] font-bold text-ink">Stored</span>
             <span className="flex-1 text-[11px] text-muted">The choice is kept in this browser only, and applied before the first paint so the page never flashes the wrong theme.</span>
           </div>
+        </div>
+      </section>
+
+      <section className="mb-5" id="desktop">
+        <h2 className="mb-2.5 flex items-center gap-2 text-[13px] font-bold text-ink"><Bell size={16} className="text-brand" />Desktop notifications</h2>
+        <div className={settingsList}>
+          <div className={settingsRow}>
+            {desktop === "granted" ? <CheckCircle2 size={18} className="text-success" /> : desktop === "denied" ? <ShieldAlert size={18} className="text-warn" /> : <Bell size={18} className="text-muted" />}
+            <span className="flex-1">
+              <strong className="block text-xs">Status</strong>
+              <small className="mt-1 block text-[11px] text-muted">
+                {desktop === "granted"
+                  ? "On. A popup appears when a new alarm is created, and clicking it opens that alarm."
+                  : desktop === "denied"
+                    ? "Blocked by the browser, so no popup can appear. Click the padlock or the settings icon beside the address bar, allow notifications for this site, then reload."
+                    : desktop === "unsupported"
+                      ? "This browser has no notification support. The in-app bell still works."
+                      : "Off. Turning them on asks the browser once, and nothing is sent anywhere."}
+              </small>
+            </span>
+            {desktop === "granted" ? (
+              <span className={`${recordStatus} ${statusTone.running}`}>on</span>
+            ) : desktop === "default" ? (
+              <button className={`${button} ${buttonSmall} ${buttonPrimary}`} type="button" onClick={() => void enableDesktop()}>Turn on</button>
+            ) : null}
+          </div>
+          <div className={settingsRow}>
+            <span className="min-w-[110px] text-[11px] font-bold text-ink">Stored</span>
+            <span className="flex-1 text-[11px] text-muted">
+              {desktop === "granted"
+                ? "The browser holds this permission, not this site. There is nothing here to clear."
+                : offerDismissed
+                  ? "You dismissed the offer in the notification bell, so it no longer appears there."
+                  : "The bell shows a one-line offer until you turn them on or dismiss it."}
+            </span>
+          </div>
+          {offerDismissed && desktop !== "granted" && (
+            <div className={settingsRow}>
+              <RotateCcw size={18} className="text-muted" />
+              <span className="flex-1">
+                <strong className="block text-xs">Show the offer again</strong>
+                <small className="mt-1 block text-[11px] text-muted">Puts the one-line offer back in the bell. It is only a prompt, nothing is sent until you allow it.</small>
+              </span>
+              <button className={`${button} ${buttonSmall} ${buttonSecondary}`} type="button" onClick={restoreDesktopOffer}>Restore</button>
+            </div>
+          )}
         </div>
       </section>
 
